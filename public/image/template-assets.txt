@@ -1,0 +1,41 @@
+Template editor images:
+- /image/templates/template-01.png -> Canva: Green Brown Simple Eid al-Fitr Card
+- /image/templates/template-02.png -> Canva: Blue and Yellow Mosque Eid al-Fitr Card
+- /image/templates/template-03.png -> Canva: Blue & Gold Floral Eid Al-Fitr Greeting Card
+- /image/templates/template-04.png -> Canva: Blue and Yellow Moon and Stars Eid al-Fitr Card
+
+Optional gallery images:
+- /image/gallery/template-01.png -> export hero/thumbnail versi gallery
+- /image/gallery/template-02.png -> export hero/thumbnail versi gallery
+- /image/gallery/template-03.png -> export hero/thumbnail versi gallery
+- /image/gallery/template-04.png -> export hero/thumbnail versi gallery
+
+If a gallery image is missing, the app falls back to the editor image.
+If an editor image is missing, the app falls back to the generated canvas artwork.
+
+Recommended export workflow from Canva:
+1. Duplicate the original Canva template before editing.
+2. Recolor the design to match AN-NAHL:
+   - Green: #59CD00
+   - Yellow: #FFD21F
+   - Brown: #2F1D19
+   - White: #FFFFFF
+3. Keep the main ornament and text area centered because the app may crop the image for other ratios.
+4. Download as PNG, not JPG.
+5. Rename the file exactly as listed above.
+
+Recommended editor export for the current app:
+- template-01.png -> 2160x2700 PNG
+- template-02.png -> 2160x2700 PNG
+- template-03.png -> 2160x2700 PNG
+- template-04.png -> 2160x2700 PNG
+
+Recommended gallery export:
+- template-01.png -> 2160x2160 PNG (square hero)
+- template-02.png -> 2160x2700 PNG (portrait hero)
+- template-03.png -> 2160x2700 PNG (portrait hero)
+- template-04.png -> 2160x3840 PNG (story hero)
+
+Notes:
+- The current app uses one editor image per template for all ratios, so designs with wide safe margins work best.
+- If you want perfect non-cropped artwork for square, portrait, and story separately, the app should be upgraded to support 3 image variants per template.
