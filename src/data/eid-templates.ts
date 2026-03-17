@@ -19,6 +19,15 @@ export interface TemplatePalette {
   readonly text: string;
 }
 
+export interface TemplateNamePlate {
+  readonly boxHeight: number;
+  readonly centerX: number;
+  readonly centerY: number;
+  readonly color: string;
+  readonly fontSize: number;
+  readonly maxWidth: number;
+}
+
 export interface EidTemplate {
   readonly badge: string;
   readonly decoration: DecorationStyle;
@@ -30,6 +39,7 @@ export interface EidTemplate {
   readonly id: string;
   readonly kicker: string;
   readonly name: string;
+  readonly namePlate?: TemplateNamePlate;
   readonly palette: TemplatePalette;
 }
 
@@ -40,7 +50,6 @@ export interface EditorState {
   readonly bodySize: number;
   readonly message: string;
   readonly overlayStrength: number;
-  readonly recipient: string;
   readonly sender: string;
   readonly sizeId: CardSizeId;
   readonly templateId: string;
@@ -54,28 +63,32 @@ export const CARD_SIZES = {
   square: {
     height: 1080,
     id: "square",
-    label: "Square 1:1",
+    label: "1:1",
     width: 1080,
   },
   portrait: {
     height: 1350,
     id: "portrait",
-    label: "Portrait 4:5",
+    label: "4:5",
     width: 1080,
   },
   story: {
     height: 1920,
     id: "story",
-    label: "Story 9:16",
+    label: "9:16",
     width: 1080,
   },
 } satisfies Record<CardSizeId, CardSizeDefinition>;
 
-export const CARD_SIZE_OPTIONS = Object.values(CARD_SIZES);
+export const CARD_SIZE_OPTIONS = [
+  CARD_SIZES.portrait,
+  CARD_SIZES.square,
+  CARD_SIZES.story,
+] as const;
 
 export const EID_TEMPLATES = [
   {
-    badge: "Minimal",
+    badge: "Lentera",
     decoration: "arch",
     defaultMessage:
       "Semoga Idulfitri ini membawa hati yang lapang, rumah yang damai, dan langkah yang penuh keberkahan.",
@@ -83,10 +96,18 @@ export const EID_TEMPLATES = [
       "Adaptasi template Canva bernuansa hijau-cokelat yang sederhana, hangat, dan dekat dengan warna brand.",
     editorImagePath: "/image/templates/template-01.png",
     galleryImagePath: "/image/gallery/template-01.png",
-    headline: "Eid Mubarak",
+    headline: "Selamat Idul Fitri",
     id: "template-01",
-    kicker: "Green Brown Simple",
-    name: "Green Brown Simple",
+    kicker: "Lentera Hijau",
+    name: "Lentera Hijau",
+    namePlate: {
+      boxHeight: 0.12,
+      centerX: 0.5,
+      centerY: 0.568,
+      color: "#6f7851",
+      fontSize: 56,
+      maxWidth: 0.6,
+    },
     palette: {
       accent: "#59cd00",
       accentSoft: "#f4ffd2",
@@ -98,7 +119,7 @@ export const EID_TEMPLATES = [
     },
   },
   {
-    badge: "Mosque",
+    badge: "Masjid",
     decoration: "arch",
     defaultMessage:
       "Taqabbalallahu minna wa minkum. Semoga setiap doa baik yang dipanjatkan di hari ini dibalas dengan kebaikan yang berlipat.",
@@ -106,10 +127,18 @@ export const EID_TEMPLATES = [
       "Adaptasi template Canva dengan siluet masjid yang elegan, lalu direcolor ke hijau lembut dan aksen emas.",
     editorImagePath: "/image/templates/template-02.png",
     galleryImagePath: "/image/gallery/template-02.png",
-    headline: "Selamat Idulfitri",
+    headline: "Selamat Idul Fitri",
     id: "template-02",
-    kicker: "Blue Yellow Mosque",
-    name: "Blue Yellow Mosque",
+    kicker: "Masjid Lentera",
+    name: "Masjid Lentera",
+    namePlate: {
+      boxHeight: 0.11,
+      centerX: 0.5,
+      centerY: 0.602,
+      color: "#5b5562",
+      fontSize: 56,
+      maxWidth: 0.6,
+    },
     palette: {
       accent: "#ffd21f",
       accentSoft: "#fff4b7",
@@ -121,7 +150,7 @@ export const EID_TEMPLATES = [
     },
   },
   {
-    badge: "Floral",
+    badge: "Tipografi",
     decoration: "mosaic",
     defaultMessage:
       "Mari menutup Ramadan dengan syukur dan membuka hari raya dengan pelukan hangat, silaturahmi, dan banyak kebaikan.",
@@ -129,10 +158,18 @@ export const EID_TEMPLATES = [
       "Versi floral premium dari template Canva dengan permainan emas lembut dan hijau daun yang lebih editorial.",
     editorImagePath: "/image/templates/template-03.png",
     galleryImagePath: "/image/gallery/template-03.png",
-    headline: "Eid Blessings",
+    headline: "Selamat Idul Fitri",
     id: "template-03",
-    kicker: "Blue Gold Floral",
-    name: "Blue Gold Floral",
+    kicker: "Tipografi Emerald",
+    name: "Tipografi Emerald",
+    namePlate: {
+      boxHeight: 0.11,
+      centerX: 0.5,
+      centerY: 0.602,
+      color: "#2d9b8c",
+      fontSize: 56,
+      maxWidth: 0.6,
+    },
     palette: {
       accent: "#ffd21f",
       accentSoft: "#fff6c7",
@@ -144,7 +181,7 @@ export const EID_TEMPLATES = [
     },
   },
   {
-    badge: "Moonlight",
+    badge: "Kaligrafi",
     decoration: "crescent",
     defaultMessage:
       "Semoga setiap langkah selepas Ramadan tetap dijaga dalam ketenangan, keikhlasan, dan cinta pada sesama.",
@@ -152,10 +189,18 @@ export const EID_TEMPLATES = [
       "Adaptasi template Canva bertema bulan dan bintang untuk ucapan yang lebih atmosferik dan tenang.",
     editorImagePath: "/image/templates/template-04.png",
     galleryImagePath: "/image/gallery/template-04.png",
-    headline: "Blessed Eid",
+    headline: "Selamat Idul Fitri",
     id: "template-04",
-    kicker: "Moon and Stars",
-    name: "Moon and Stars",
+    kicker: "Kaligrafi Masjid",
+    name: "Kaligrafi Masjid",
+    namePlate: {
+      boxHeight: 0.11,
+      centerX: 0.5,
+      centerY: 0.602,
+      color: "#496c55",
+      fontSize: 56,
+      maxWidth: 0.6,
+    },
     palette: {
       accent: "#ffd21f",
       accentSoft: "#fff7cf",
@@ -201,9 +246,8 @@ export const DEFAULT_SETTINGS: EditorState = {
   bodySize: 38,
   message: EID_TEMPLATES[0].defaultMessage,
   overlayStrength: 58,
-  recipient: "Sahabat terbaik",
-  sender: "Keluarga Anda",
-  sizeId: "square",
+  sender: "",
+  sizeId: "portrait",
   templateId: DEFAULT_TEMPLATE_ID,
   textColor: EID_TEMPLATES[0].palette.text,
   textX: 50,

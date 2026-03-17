@@ -59,7 +59,6 @@ interface GalleryDirection {
   readonly bodySize: number;
   readonly message: string;
   readonly overlayStrength: number;
-  readonly recipient: string;
   readonly sender: string;
   readonly sizeId: EditorState["sizeId"];
   readonly textX: number;
@@ -76,7 +75,7 @@ interface GalleryCardProps {
 interface PanelProps {
   readonly children: React.ReactNode;
   readonly description?: string;
-  readonly title: string;
+  readonly title?: string;
 }
 
 interface RangeFieldProps {
@@ -114,28 +113,6 @@ const ALIGNMENT_OPTIONS = [
   readonly label: string;
 }[];
 
-const TABS = [
-  {
-    description: "Generator cepat",
-    id: "simple",
-    label: "Simple",
-  },
-  {
-    description: "Editor lengkap",
-    id: "studio",
-    label: "Studio",
-  },
-  {
-    description: "Template siap pakai",
-    id: "gallery",
-    label: "Gallery",
-  },
-] as const satisfies readonly {
-  readonly description: string;
-  readonly id: StudioTab;
-  readonly label: string;
-}[];
-
 const EMPTY_BOUNDS: CardTextBounds = {
   height: 0,
   width: 0,
@@ -149,8 +126,7 @@ const DEFAULT_GALLERY_DIRECTION: GalleryDirection = {
   message:
     "Semoga Idulfitri menghadirkan rumah yang damai, hati yang lapang, dan langkah yang tetap lembut setelah Ramadan.",
   overlayStrength: 56,
-  recipient: "Sahabat terbaik",
-  sender: "Keluarga AN-NAHL",
+  sender: "Nama Anda",
   sizeId: "square",
   textX: 50,
   textY: 62,
@@ -164,8 +140,7 @@ const GALLERY_DIRECTIONS: Record<string, GalleryDirection> = {
     message:
       "Semoga Idulfitri ini membawa hati yang lapang, rumah yang damai, dan langkah yang penuh keberkahan.",
     overlayStrength: 64,
-    recipient: "Keluarga mulia",
-    sender: "Yayasan AN-NAHL",
+    sender: "Nama Anda",
     sizeId: "square",
     textX: 50,
     textY: 67,
@@ -177,8 +152,7 @@ const GALLERY_DIRECTIONS: Record<string, GalleryDirection> = {
     message:
       "Taqabbalallahu minna wa minkum. Semoga syukur, damai, dan kebersamaan tumbuh selepas Ramadan.",
     overlayStrength: 34,
-    recipient: "Sahabat terdekat",
-    sender: "Keluarga AN-NAHL",
+    sender: "Nama Anda",
     sizeId: "portrait",
     textX: 50,
     textY: 66,
@@ -190,8 +164,7 @@ const GALLERY_DIRECTIONS: Record<string, GalleryDirection> = {
     message:
       "Semoga hari raya ini menguatkan silaturahmi, melapangkan rezeki, dan menghadirkan banyak kebaikan.",
     overlayStrength: 48,
-    recipient: "Donatur tercinta",
-    sender: "Tim AN-NAHL",
+    sender: "Nama Anda",
     sizeId: "portrait",
     textX: 50,
     textY: 67,
@@ -203,8 +176,7 @@ const GALLERY_DIRECTIONS: Record<string, GalleryDirection> = {
     message:
       "Semoga setiap langkah selepas Ramadan tetap dijaga dalam ketenangan, keikhlasan, dan cinta pada sesama.",
     overlayStrength: 36,
-    recipient: "Mitra kebaikan",
-    sender: "Panitia AN-NAHL",
+    sender: "Nama Anda",
     sizeId: "story",
     textX: 50,
     textY: 66,
@@ -224,6 +196,8 @@ const GALLERY_MOCKUP_ROTATIONS = [
   "-rotate-[0.9deg]",
   "rotate-[1.2deg]",
 ] as const;
+
+const FALLBACK_TEMPLATE_IMAGE_PATH = "/image/templates/template-01.png";
 
 const clamp = (value: number, minimum: number, maximum: number): number => {
   return Math.min(Math.max(value, minimum), maximum);
@@ -311,18 +285,18 @@ const getGalleryBadgeStyle = (template: EidTemplate) => {
   };
 };
 
-const buildFilename = (template: EidTemplate, recipient: string): string => {
-  const nameSegment = recipient.trim() ? slugify(recipient.trim()) : "ucapan";
+const buildFilename = (template: EidTemplate, senderName: string): string => {
+  const nameSegment = senderName.trim() ? slugify(senderName.trim()) : "ucapan";
   return `eid-${slugify(template.name)}-${nameSegment}.png`;
 };
 
 const downloadCanvas = (
   canvas: HTMLCanvasElement,
   template: EidTemplate,
-  recipient: string
+  senderName: string
 ): void => {
   const link = document.createElement("a");
-  link.download = buildFilename(template, recipient);
+  link.download = buildFilename(template, senderName);
   link.href = canvas.toDataURL("image/png");
   link.click();
 };
@@ -344,16 +318,12 @@ const buildGreetingCopy = (
   template: EidTemplate,
   settings: EditorState
 ): string => {
-  const recipientLine = settings.recipient.trim()
-    ? `Untuk ${settings.recipient.trim()}`
-    : "Untuk orang-orang tercinta";
   const senderLine = settings.sender.trim()
-    ? `Salam hangat, ${settings.sender.trim()}`
+    ? `Dari, ${settings.sender.trim()}`
     : "";
 
   return [
     template.headline,
-    recipientLine,
     settings.message.trim() || template.defaultMessage,
     senderLine,
   ]
@@ -417,7 +387,6 @@ const createGallerySettings = (template: EidTemplate): EditorState => {
     bodySize: direction.bodySize,
     message: direction.message,
     overlayStrength: direction.overlayStrength,
-    recipient: direction.recipient,
     sender: direction.sender,
     sizeId: direction.sizeId,
     templateId: template.id,
@@ -462,21 +431,36 @@ const useAssetImage = (source: string | null): HTMLImageElement | null => {
   return image;
 };
 
+const useTemplateImageWithFallback = (
+  source: string
+): HTMLImageElement | null => {
+  const image = useAssetImage(source);
+  const fallbackImage = useAssetImage(FALLBACK_TEMPLATE_IMAGE_PATH);
+
+  return image ?? fallbackImage;
+};
+
 function ControlPanel({ children, description, title }: PanelProps) {
   return (
     <section className="rounded-[30px] border border-[#dff1b7] bg-white p-5 shadow-[0_24px_60px_rgba(69,154,0,0.08)]">
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <div>
-          <h2 className={`${displayFont.className} text-2xl text-[#2f1d19]`}>
-            {title}
-          </h2>
-          {description ? (
-            <p className="mt-1 max-w-xl text-[#6b5a46] text-sm leading-6">
-              {description}
-            </p>
-          ) : null}
+      {title || description ? (
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            {title ? (
+              <h2
+                className={`${displayFont.className} text-2xl text-[#2f1d19]`}
+              >
+                {title}
+              </h2>
+            ) : null}
+            {description ? (
+              <p className="mt-1 max-w-xl text-[#6b5a46] text-sm leading-6">
+                {description}
+              </p>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
       {children}
     </section>
   );
@@ -618,7 +602,7 @@ function GreetingCanvas({
 function GalleryCard({ index, onUseTemplate, template }: GalleryCardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const settings = createGallerySettings(template);
-  const editorImage = useAssetImage(template.editorImagePath);
+  const editorImage = useTemplateImageWithFallback(template.editorImagePath);
   const galleryImage = useAssetImage(template.galleryImagePath);
   const previewTemplateImage = galleryImage ?? editorImage;
   const rotationClass =
@@ -741,7 +725,7 @@ function GalleryCard({ index, onUseTemplate, template }: GalleryCardProps) {
                 return;
               }
 
-              downloadCanvas(canvas, template, settings.recipient);
+              downloadCanvas(canvas, template, settings.sender);
             }}
             type="button"
           >
@@ -775,7 +759,9 @@ export function EidGreetingApp() {
   const objectUrlRef = useRef<string | null>(null);
   const textBoundsRef = useRef<CardTextBounds>(EMPTY_BOUNDS);
   const selectedTemplate = getTemplateById(settings.templateId);
-  const selectedTemplateImage = useAssetImage(selectedTemplate.editorImagePath);
+  const selectedTemplateImage = useTemplateImageWithFallback(
+    selectedTemplate.editorImagePath
+  );
 
   useEffect(() => {
     const message = statusMessage;
@@ -912,23 +898,6 @@ export function EidGreetingApp() {
     event.target.value = "";
   };
 
-  const handleRandomize = (): void => {
-    const randomTemplate =
-      EID_TEMPLATES[Math.floor(Math.random() * EID_TEMPLATES.length)] ??
-      EID_TEMPLATES[0];
-    const randomMessage =
-      MESSAGE_PRESETS[Math.floor(Math.random() * MESSAGE_PRESETS.length)] ??
-      MESSAGE_PRESETS[0];
-
-    setSettings((current) => ({
-      ...applyTemplateSettings(current, randomTemplate),
-      message: randomMessage,
-      textX: 50,
-      textY: 57,
-    }));
-    setStatusMessage("Kombinasi template dan pesan diacak.");
-  };
-
   const handleDownload = (): void => {
     const canvas = syncRender();
 
@@ -936,7 +905,7 @@ export function EidGreetingApp() {
       return;
     }
 
-    downloadCanvas(canvas, selectedTemplate, settings.recipient);
+    downloadCanvas(canvas, selectedTemplate, settings.sender);
     setStatusMessage("PNG berhasil dibuat dan diunduh.");
   };
 
@@ -975,7 +944,7 @@ export function EidGreetingApp() {
       const blob = await canvasToBlob(canvas);
       const file = new File(
         [blob],
-        buildFilename(selectedTemplate, settings.recipient),
+        buildFilename(selectedTemplate, settings.sender),
         {
           type: "image/png",
         }
@@ -1087,238 +1056,158 @@ export function EidGreetingApp() {
     <div className="relative isolate min-h-screen bg-white px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <header className="rounded-[32px] border border-[#dff1b7] bg-white px-5 py-5 shadow-[0_24px_60px_rgba(69,154,0,0.08)] sm:px-7">
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="relative flex h-24 w-24 items-center justify-center sm:h-28 sm:w-28">
+          <div className="grid grid-cols-2 gap-5 sm:grid-cols-[96px_minmax(0,1fr)_96px] sm:items-center md:grid-cols-[112px_minmax(0,1fr)_112px]">
+            <div className="order-2 flex justify-center sm:order-none sm:col-start-1 sm:row-start-1 sm:justify-start">
+              <div className="relative flex h-20 w-20 items-center justify-center sm:h-24 sm:w-24 md:h-28 md:w-28">
                 <Image
                   alt="Logo Yayasan AN-NAHL"
                   className="object-contain"
                   fill
                   priority
-                  sizes="(min-width: 640px) 112px, 96px"
-                  src="/image/logo-yayasan.png"
+                  sizes="(min-width: 768px) 112px, (min-width: 640px) 96px, 80px"
+                  src="/image/logo/logo-yayasan.png"
                 />
               </div>
-              <div className="space-y-1">
-                <p className="font-semibold text-[#4d9300] text-base uppercase tracking-[0.34em]">
-                  Yayasan Pendidikan Yatim & Dhu'afa An-Nahl
-                </p>
-                <h1
-                  className={`${displayFont.className} text-2xl text-[#2f1d19] leading-none sm:text-3xl`}
-                >
-                  Eid Greeting Generator
-                </h1>
-                <p className="max-w-2xl text-[#6b5a46] text-sm leading-6 sm:text-base">
-                  Buat kartu ucapan Idulfitri dengan mode Simple, Studio, dan
-                  Gallery dalam satu halaman.
-                </p>
-              </div>
             </div>
-            <div className="grid gap-2 text-[#6b5a46] text-sm sm:text-right">
-              <p>Template siap pakai, editor teks, dan preview real-time.</p>
-              <p>Download PNG langsung dari halaman yang sama.</p>
+            <div className="order-1 col-span-2 text-center sm:order-none sm:col-span-1 sm:col-start-2 sm:row-start-1">
+              <p className="font-semibold text-[#4d9300] text-sm uppercase tracking-[0.22em] sm:text-lg sm:tracking-[0.3em]">
+                Yayasan Pendidikan Yatim & Dhu&apos;afa An-Nahl
+              </p>
+              <p className="mt-1 font-semibold text-[#4d9300] text-sm uppercase tracking-[0.22em] sm:text-lg sm:tracking-[0.3em]">
+                Pondok Pesantren Tahfizh Al-Uswah
+              </p>
+              <h1
+                className={`${displayFont.className} mt-3 text-2xl text-[#2f1d19] leading-none sm:text-3xl`}
+              >
+                Kartu Ucapan Idul Fitri
+              </h1>
+              <p className="mx-auto mt-3 max-w-3xl text-[#6b5a46] text-sm leading-6 sm:text-base">
+                Isi nama, pilih template, lalu unduh kartu ucapan Idul Fitri.
+              </p>
+            </div>
+            <div className="order-3 flex justify-center sm:order-none sm:col-start-3 sm:row-start-1 sm:justify-end">
+              <div className="relative flex h-20 w-20 items-center justify-center sm:h-24 sm:w-24 md:h-28 md:w-28">
+                <Image
+                  alt="Logo Pondok Pesantren Tahfizh Al-Uswah"
+                  className="scale-[1.25] object-contain"
+                  fill
+                  priority
+                  sizes="(min-width: 768px) 112px, (min-width: 640px) 96px, 80px"
+                  src="/image/logo/logo-aluswah.png"
+                />
+              </div>
             </div>
           </div>
         </header>
 
-        <section className="rounded-[28px] border border-[#dff1b7] bg-white p-3 shadow-[0_20px_50px_rgba(69,154,0,0.06)]">
-          <div className="mb-3 px-2">
-            <p className="font-semibold text-[#4d9300] text-xs uppercase tracking-[0.32em]">
-              Kategori
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {TABS.map((tab) => {
-              const isActive = tab.id === activeTab;
-
-              return (
-                <button
-                  className={`rounded-[24px] px-4 py-4 text-left transition ${
-                    isActive
-                      ? "bg-[#459a00] text-white shadow-[0_18px_45px_rgba(69,154,0,0.2)]"
-                      : "bg-transparent text-[#5e4b3a] hover:bg-white"
-                  }`}
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  type="button"
-                >
-                  <span className="block font-semibold text-sm">
-                    {tab.label}
-                  </span>
-                  <span
-                    className={`mt-1 block text-sm leading-6 ${
-                      isActive ? "text-white/78" : "text-[#7a6a57]"
-                    }`}
-                  >
-                    {tab.description}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
         <main className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
           <div className="flex flex-col gap-5">
             {activeTab === "simple" ? (
-              <>
-                <ControlPanel
-                  description="Mode cepat untuk ganti template, nama penerima, dan pesan tanpa membuka semua pengaturan."
-                  title="Quick Compose"
-                >
-                  <div className="grid gap-5">
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {EID_TEMPLATES.map((template) => {
-                        const isActive = template.id === settings.templateId;
+              <ControlPanel>
+                <div className="grid gap-4">
+                  <label className="flex flex-col gap-2">
+                    <span className="font-medium text-[#5e4b3a] text-sm">
+                      Nama Anda
+                    </span>
+                    <input
+                      className="rounded-[18px] border border-[#dfe8bf] bg-white px-4 py-3 text-[#2f1d19] text-base outline-none transition focus:border-[#59cd00]"
+                      onChange={(event) =>
+                        updateSettings({ sender: event.target.value })
+                      }
+                      placeholder="Mis. Marfin Pro"
+                      type="text"
+                      value={settings.sender}
+                    />
+                    <span className="text-[#7a6a57] text-xs leading-5">
+                      Isi nama untuk melihat hasilnya di preview, lalu pilih
+                      template yang Anda inginkan,
+                    </span>
+                  </label>
+                  <div className="grid gap-3">
+                    <span className="font-medium text-[#5e4b3a] text-sm">
+                      Ukuran
+                    </span>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {CARD_SIZE_OPTIONS.map((size) => {
+                        const isActive = size.id === settings.sizeId;
 
                         return (
                           <button
-                            className={`rounded-[26px] border p-4 text-left transition ${
+                            className={`rounded-[20px] border px-4 py-3 text-left transition ${
                               isActive
-                                ? "border-[#459a00] bg-[#459a00] text-white shadow-[0_18px_45px_rgba(69,154,0,0.18)]"
-                                : "border-[#dceab3] bg-white text-[#2f1d19] hover:border-[#59cd00]"
+                                ? "border-[#459a00] bg-[#459a00] text-white"
+                                : "border-[#dceab3] bg-white text-[#5e4b3a] hover:border-[#59cd00]"
                             }`}
-                            key={template.id}
-                            onClick={() => selectTemplate(template.id)}
+                            key={size.id}
+                            onClick={() => updateSettings({ sizeId: size.id })}
                             type="button"
                           >
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <p
-                                  className={`font-semibold text-xs uppercase tracking-[0.28em] ${
-                                    isActive
-                                      ? "text-white/70"
-                                      : "text-[#7a6a57]"
-                                  }`}
-                                >
-                                  {template.badge}
-                                </p>
-                                <h2
-                                  className={`${displayFont.className} mt-2 text-2xl ${
-                                    isActive ? "text-white" : "text-[#2f1d19]"
-                                  }`}
-                                >
-                                  {template.name}
-                                </h2>
-                              </div>
-                              <span
-                                className="h-12 w-12 rounded-full border border-white/40"
-                                style={{
-                                  background: `linear-gradient(135deg, ${template.palette.backdropStart}, ${template.palette.backdropEnd})`,
-                                }}
-                              />
-                            </div>
-                            <p
-                              className={`mt-3 text-sm leading-6 ${
-                                isActive ? "text-white/74" : "text-[#6b5a46]"
+                            <span className="block font-semibold text-base">
+                              {size.label}
+                            </span>
+                            <span
+                              className={`mt-1 block text-xs ${
+                                isActive ? "text-white/72" : "text-[#7a6a57]"
                               }`}
                             >
-                              {template.description}
-                            </p>
+                              {size.width} x {size.height}
+                            </span>
                           </button>
                         );
                       })}
                     </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <label className="flex flex-col gap-2">
-                        <span className="font-medium text-[#5e4b3a] text-sm">
-                          Nama penerima
-                        </span>
-                        <input
-                          className="rounded-[18px] border border-[#dfe8bf] bg-white px-4 py-3 text-[#2f1d19] text-base outline-none transition focus:border-[#59cd00]"
-                          onChange={(event) =>
-                            updateSettings({ recipient: event.target.value })
-                          }
-                          placeholder="Mis. Sahabat terbaik"
-                          type="text"
-                          value={settings.recipient}
-                        />
-                      </label>
-                      <label className="flex flex-col gap-2">
-                        <span className="font-medium text-[#5e4b3a] text-sm">
-                          Nama pengirim
-                        </span>
-                        <input
-                          className="rounded-[18px] border border-[#dfe8bf] bg-white px-4 py-3 text-[#2f1d19] text-base outline-none transition focus:border-[#59cd00]"
-                          onChange={(event) =>
-                            updateSettings({ sender: event.target.value })
-                          }
-                          placeholder="Mis. Keluarga Anda"
-                          type="text"
-                          value={settings.sender}
-                        />
-                      </label>
-                    </div>
-
-                    <div className="grid gap-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <h3 className="font-semibold text-[#3f2a1d] text-sm">
-                          Pesan siap pakai
-                        </h3>
-                        <button
-                          className="rounded-full border border-[#bfd684] bg-white px-4 py-2 font-semibold text-[#5e4b3a] text-sm transition hover:border-[#59cd00]"
-                          onClick={handleRandomize}
-                          type="button"
-                        >
-                          Acak sekali
-                        </button>
-                      </div>
-                      <div className="grid gap-3">
-                        {MESSAGE_PRESETS.map((message) => (
-                          <button
-                            className={`rounded-[22px] border px-4 py-4 text-left text-sm leading-6 transition ${
-                              settings.message === message
-                                ? "border-[#459a00] bg-[#459a00] text-white"
-                                : "border-[#dceab3] bg-white text-[#5e4b3a] hover:border-[#59cd00]"
-                            }`}
-                            key={message}
-                            onClick={() => updateSettings({ message })}
-                            type="button"
-                          >
-                            {message}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                   </div>
-                </ControlPanel>
-
-                <ControlPanel
-                  description="Pilihan cepat sebelum ekspor. Studio menyediakan kontrol lebih detail."
-                  title="Output"
-                >
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    {CARD_SIZE_OPTIONS.map((size) => {
-                      const isActive = size.id === settings.sizeId;
+                  <div className="rounded-[24px] border border-[#edf7d4] bg-[#fbfff3] px-4 py-4 text-[#5e4b3a] text-sm leading-6">
+                    Nama akan muncul di panel ornamen tengah dari template yang
+                    dipilih.
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {EID_TEMPLATES.map((template) => {
+                      const isActive = template.id === settings.templateId;
 
                       return (
                         <button
-                          className={`rounded-[22px] border px-4 py-4 text-left transition ${
+                          className={`rounded-[26px] border p-3 text-left transition ${
                             isActive
-                              ? "border-[#459a00] bg-[#459a00] text-white"
-                              : "border-[#dceab3] bg-white text-[#5e4b3a] hover:border-[#59cd00]"
+                              ? "border-[#459a00] bg-[#f7ffe9] shadow-[0_18px_45px_rgba(69,154,0,0.12)]"
+                              : "border-[#dceab3] bg-white hover:border-[#59cd00]"
                           }`}
-                          key={size.id}
-                          onClick={() => updateSettings({ sizeId: size.id })}
+                          key={template.id}
+                          onClick={() => selectTemplate(template.id)}
                           type="button"
                         >
-                          <span className="block font-semibold text-sm">
-                            {size.label}
-                          </span>
-                          <span
-                            className={`mt-1 block text-xs ${
-                              isActive ? "text-white/72" : "text-[#7a6a57]"
-                            }`}
-                          >
-                            {size.width} x {size.height}
-                          </span>
+                          <div className="relative aspect-[4/5] overflow-hidden rounded-[20px] border border-[#edf7d4] bg-[#fbfff3]">
+                            <Image
+                              alt={`Preview ${template.name}`}
+                              className="object-cover object-top"
+                              fill
+                              sizes="(min-width: 1280px) 260px, (min-width: 640px) 50vw, 100vw"
+                              src={template.editorImagePath}
+                            />
+                          </div>
+                          <div className="mt-3 flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-semibold text-[#7a6a57] text-xs uppercase tracking-[0.26em]">
+                                {template.badge}
+                              </p>
+                              <h2
+                                className={`${displayFont.className} mt-2 text-[#2f1d19] text-xl`}
+                              >
+                                {template.name}
+                              </h2>
+                            </div>
+                            {isActive ? (
+                              <span className="rounded-full bg-[#459a00] px-3 py-1 font-semibold text-white text-xs">
+                                Aktif
+                              </span>
+                            ) : null}
+                          </div>
                         </button>
                       );
                     })}
                   </div>
-                </ControlPanel>
-              </>
+                </div>
+              </ControlPanel>
             ) : null}
 
             {activeTab === "studio" ? (
@@ -1381,34 +1270,23 @@ export function EidGreetingApp() {
                       })}
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <label className="flex flex-col gap-2">
-                        <span className="font-medium text-[#5e4b3a] text-sm">
-                          Nama penerima
-                        </span>
-                        <input
-                          className="rounded-[18px] border border-[#dfe8bf] bg-white px-4 py-3 text-[#2f1d19] text-base outline-none transition focus:border-[#59cd00]"
-                          onChange={(event) =>
-                            updateSettings({ recipient: event.target.value })
-                          }
-                          type="text"
-                          value={settings.recipient}
-                        />
-                      </label>
-                      <label className="flex flex-col gap-2">
-                        <span className="font-medium text-[#5e4b3a] text-sm">
-                          Nama pengirim
-                        </span>
-                        <input
-                          className="rounded-[18px] border border-[#dfe8bf] bg-white px-4 py-3 text-[#2f1d19] text-base outline-none transition focus:border-[#59cd00]"
-                          onChange={(event) =>
-                            updateSettings({ sender: event.target.value })
-                          }
-                          type="text"
-                          value={settings.sender}
-                        />
-                      </label>
-                    </div>
+                    <label className="flex flex-col gap-2">
+                      <span className="font-medium text-[#5e4b3a] text-sm">
+                        Nama Anda
+                      </span>
+                      <input
+                        className="rounded-[18px] border border-[#dfe8bf] bg-white px-4 py-3 text-[#2f1d19] text-base outline-none transition focus:border-[#59cd00]"
+                        onChange={(event) =>
+                          updateSettings({ sender: event.target.value })
+                        }
+                        placeholder="Mis. Marfin Pro"
+                        type="text"
+                        value={settings.sender}
+                      />
+                      <span className="text-[#7a6a57] text-xs leading-5">
+                        Nama ini akan tampil di panel ornamen tengah.
+                      </span>
+                    </label>
 
                     <label className="flex flex-col gap-2">
                       <span className="font-medium text-[#5e4b3a] text-sm">
@@ -1644,21 +1522,23 @@ export function EidGreetingApp() {
               </>
             ) : null}
 
-            <ControlPanel
-              description="Pilih desain yang sudah jadi, unduh langsung, atau buka ke Studio untuk diedit lebih lanjut."
-              title="Template Gallery"
-            >
-              <div className="grid gap-4 xl:grid-cols-2">
-                {EID_TEMPLATES.map((template, index) => (
-                  <GalleryCard
-                    index={index}
-                    key={template.id}
-                    onUseTemplate={jumpFromGallery}
-                    template={template}
-                  />
-                ))}
-              </div>
-            </ControlPanel>
+            {activeTab === "gallery" ? (
+              <ControlPanel
+                description="Pilih desain yang sudah jadi, unduh langsung, atau buka ke Studio untuk diedit lebih lanjut."
+                title="Template Gallery"
+              >
+                <div className="grid gap-4 xl:grid-cols-2">
+                  {EID_TEMPLATES.map((template, index) => (
+                    <GalleryCard
+                      index={index}
+                      key={template.id}
+                      onUseTemplate={jumpFromGallery}
+                      template={template}
+                    />
+                  ))}
+                </div>
+              </ControlPanel>
+            ) : null}
           </div>
 
           <aside className="lg:sticky lg:top-6 lg:self-start">
@@ -1700,18 +1580,10 @@ export function EidGreetingApp() {
 
               <div className="mt-4 grid gap-3 text-[#6b5a46] text-sm leading-6">
                 <div className="rounded-[24px] border border-[#edf7d4] bg-white px-4 py-3">
-                  {activeTab === "studio" ? (
-                    <p>
-                      Geser area teks langsung di preview untuk memindahkan blok
-                      ucapan. Kontrol slider tetap tersedia untuk penyesuaian
-                      presisi.
-                    </p>
-                  ) : (
-                    <p>
-                      Mode cepat siap untuk ekspor instan. Buka Studio jika
-                      ingin rasio, warna, dan posisi teks yang lebih detail.
-                    </p>
-                  )}
+                  <p>
+                    Cukup isi nama Anda. Preview akan menempatkan nama itu ke
+                    panel ornamen tengah dan siap diunduh.
+                  </p>
                 </div>
                 {isDraggingText ? (
                   <div className="rounded-[24px] border border-[#459a00] bg-[#459a00] px-4 py-3 text-white">
@@ -1762,12 +1634,10 @@ export function EidGreetingApp() {
                   <span>{selectedTemplate.headline}</span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
-                  <span className="font-semibold text-[#2f1d19]">Penerima</span>
-                  <span>{settings.recipient || "Orang terdekat"}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="font-semibold text-[#2f1d19]">Pengirim</span>
-                  <span>{settings.sender || "Tanpa nama"}</span>
+                  <span className="font-semibold text-[#2f1d19]">
+                    Nama Anda
+                  </span>
+                  <span>{settings.sender || "Nama Anda"}</span>
                 </div>
               </div>
             </div>

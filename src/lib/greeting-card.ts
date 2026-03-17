@@ -2,7 +2,6 @@ import {
   CARD_SIZES,
   type EditorState,
   type EidTemplate,
-  type TextAlignment,
 } from "@/data/eid-templates";
 
 export interface RenderFonts {
@@ -26,10 +25,24 @@ interface RenderGreetingCardOptions {
   readonly templateImage: HTMLImageElement | null;
 }
 
-const HORIZONTAL_PADDING = 84;
-const PANEL_PADDING = 34;
-const WORD_SEPARATOR = /\s+/u;
+interface ImagePlacement {
+  readonly renderHeight: number;
+  readonly renderWidth: number;
+  readonly renderX: number;
+  readonly renderY: number;
+}
+
+interface ResolvedNamePlate {
+  readonly bottom: number;
+  readonly centerX: number;
+  readonly centerY: number;
+  readonly color: string;
+  readonly fontSize: number;
+  readonly maxWidth: number;
+}
+
 const FULL_CIRCLE = Math.PI * 2;
+type ImageFitMode = "contain" | "cover";
 
 const clamp = (value: number, minimum: number, maximum: number): number => {
   return Math.min(Math.max(value, minimum), maximum);
@@ -76,24 +89,82 @@ const drawRoundedRect = (
   context.closePath();
 };
 
+const getImagePlacement = (
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+  mode: ImageFitMode
+): ImagePlacement => {
+  const imageWidth = image.naturalWidth || image.width;
+  const imageHeight = image.naturalHeight || image.height;
+  const scale =
+    mode === "cover"
+      ? Math.max(width / imageWidth, height / imageHeight)
+      : Math.min(width / imageWidth, height / imageHeight);
+  return {
+    renderHeight: imageHeight * scale,
+    renderWidth: imageWidth * scale,
+    renderX: (width - imageWidth * scale) / 2,
+    renderY: (height - imageHeight * scale) / 2,
+  };
+};
+
+const drawPlacedImage = (
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  placement: ImagePlacement,
+  filter = "saturate(0.92) contrast(1.04)",
+  alpha = 1
+): void => {
+  context.save();
+  context.filter = filter;
+  context.globalAlpha = alpha;
+  context.drawImage(
+    image,
+    placement.renderX,
+    placement.renderY,
+    placement.renderWidth,
+    placement.renderHeight
+  );
+  context.restore();
+};
+
 const drawImageCover = (
   context: CanvasRenderingContext2D,
   image: HTMLImageElement,
   width: number,
   height: number
-): void => {
-  const imageWidth = image.naturalWidth || image.width;
-  const imageHeight = image.naturalHeight || image.height;
-  const scale = Math.max(width / imageWidth, height / imageHeight);
-  const renderWidth = imageWidth * scale;
-  const renderHeight = imageHeight * scale;
-  const renderX = (width - renderWidth) / 2;
-  const renderY = (height - renderHeight) / 2;
+): ImagePlacement => {
+  const placement = getImagePlacement(image, width, height, "cover");
+  drawPlacedImage(context, image, placement);
+  return placement;
+};
+
+const drawImageContainWithBackdrop = (
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  width: number,
+  height: number
+): ImagePlacement => {
+  const backdropPlacement = getImagePlacement(image, width, height, "cover");
+  drawPlacedImage(
+    context,
+    image,
+    backdropPlacement,
+    "blur(28px) saturate(0.98) contrast(1.02)",
+    0.88
+  );
+
+  const containPlacement = getImagePlacement(image, width, height, "contain");
 
   context.save();
-  context.filter = "saturate(0.92) contrast(1.04)";
-  context.drawImage(image, renderX, renderY, renderWidth, renderHeight);
+  context.shadowBlur = 30;
+  context.shadowColor = hexToRgba("#000000", 0.14);
+  context.shadowOffsetY = 18;
+  drawPlacedImage(context, image, containPlacement);
   context.restore();
+
+  return containPlacement;
 };
 
 const drawDiamond = (
@@ -733,96 +804,230 @@ const drawMosaicDecoration = (
   context.restore();
 };
 
-const wrapText = (
+const drawGeneratedTemplateArtwork = (
   context: CanvasRenderingContext2D,
-  content: string,
-  maximumWidth: number
-): string[] => {
-  const words = content.trim().split(WORD_SEPARATOR).filter(Boolean);
-
-  if (words.length === 0) {
-    return [];
-  }
-
-  const lines: string[] = [];
-  let currentLine = words[0] ?? "";
-
-  for (const word of words.slice(1)) {
-    const nextLine = `${currentLine} ${word}`;
-
-    if (context.measureText(nextLine).width <= maximumWidth) {
-      currentLine = nextLine;
-      continue;
-    }
-
-    lines.push(currentLine);
-    currentLine = word;
-  }
-
-  lines.push(currentLine);
-  return lines;
-};
-
-const resolveTextLayout = (
   width: number,
   height: number,
-  alignment: TextAlignment,
-  anchorXPercent: number,
-  anchorYPercent: number
-): {
-  readonly drawX: number;
-  readonly left: number;
-  readonly maxWidth: number;
-  readonly top: number;
-} => {
-  const top = clamp((anchorYPercent / 100) * height, 210, height - 320);
-  const maximumWidth = Math.min(width * 0.74, 720);
-  const targetX = (anchorXPercent / 100) * width;
-
-  if (alignment === "left") {
-    const left = clamp(
-      targetX,
-      HORIZONTAL_PADDING,
-      width - HORIZONTAL_PADDING - maximumWidth
-    );
-
-    return {
-      drawX: left,
-      left,
-      maxWidth: maximumWidth,
-      top,
-    };
-  }
-
-  if (alignment === "right") {
-    const right = clamp(
-      targetX,
-      HORIZONTAL_PADDING + maximumWidth,
-      width - HORIZONTAL_PADDING
-    );
-    const left = right - maximumWidth;
-
-    return {
-      drawX: right,
-      left,
-      maxWidth: maximumWidth,
-      top,
-    };
-  }
-
-  const center = clamp(
-    targetX,
-    HORIZONTAL_PADDING + maximumWidth / 2,
-    width - HORIZONTAL_PADDING - maximumWidth / 2
+  settings: EditorState,
+  template: EidTemplate
+): void => {
+  drawPatternField(
+    context,
+    width,
+    height,
+    settings.accentColor,
+    template.palette.border
   );
-  const left = center - maximumWidth / 2;
+  drawSkyline(
+    context,
+    width,
+    height,
+    template.palette.text,
+    settings.accentColor
+  );
+  drawSparkles(context, width, height, template.palette.accentSoft);
+
+  switch (template.decoration) {
+    case "arch": {
+      drawArchDecoration(
+        context,
+        width,
+        height,
+        settings.accentColor,
+        template.palette.glow
+      );
+      break;
+    }
+    case "crescent": {
+      drawCrescentDecoration(
+        context,
+        width,
+        height,
+        settings.accentColor,
+        template.palette.glow
+      );
+      break;
+    }
+    case "lantern": {
+      drawLanternDecoration(
+        context,
+        width,
+        height,
+        settings.accentColor,
+        template.palette.glow
+      );
+      break;
+    }
+    case "mosaic": {
+      drawMosaicDecoration(
+        context,
+        width,
+        height,
+        settings.accentColor,
+        template.palette.glow
+      );
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+};
+
+const resolveNamePlate = (
+  template: EidTemplate,
+  placement: ImagePlacement,
+  templateImage: HTMLImageElement
+): ResolvedNamePlate | null => {
+  const namePlate = template.namePlate;
+
+  if (!namePlate) {
+    return null;
+  }
+
+  const imageWidth = templateImage.naturalWidth || templateImage.width;
+  const scale = placement.renderWidth / imageWidth;
+  const plateHeight = namePlate.boxHeight * placement.renderHeight;
 
   return {
-    drawX: center,
-    left,
-    maxWidth: maximumWidth,
-    top,
+    bottom:
+      placement.renderY +
+      namePlate.centerY * placement.renderHeight +
+      plateHeight / 2,
+    centerX: placement.renderX + namePlate.centerX * placement.renderWidth,
+    centerY: placement.renderY + namePlate.centerY * placement.renderHeight,
+    color: namePlate.color,
+    fontSize: namePlate.fontSize * scale,
+    maxWidth: namePlate.maxWidth * placement.renderWidth,
   };
+};
+
+const fitNamePlateFontSize = (
+  context: CanvasRenderingContext2D,
+  name: string,
+  baseFontSize: number,
+  maxWidth: number,
+  fontFamily: string
+): number => {
+  let fontSize = Math.max(baseFontSize, 24);
+
+  for (let attempt = 0; attempt < 18; attempt += 1) {
+    context.font = `700 ${Math.round(fontSize)}px ${fontFamily}`;
+
+    if (context.measureText(name).width <= maxWidth || fontSize <= 28) {
+      return fontSize;
+    }
+
+    fontSize -= 2;
+  }
+
+  return Math.max(fontSize, 28);
+};
+
+const drawNamePlateText = (
+  context: CanvasRenderingContext2D,
+  namePlate: ResolvedNamePlate,
+  name: string,
+  fonts: RenderFonts
+): void => {
+  const fittedFontSize = fitNamePlateFontSize(
+    context,
+    name,
+    namePlate.fontSize,
+    namePlate.maxWidth,
+    fonts.display
+  );
+
+  context.save();
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.font = `700 ${Math.round(fittedFontSize)}px ${fonts.display}`;
+  context.fillStyle = namePlate.color;
+  context.shadowBlur = 14;
+  context.shadowColor = hexToRgba("#ffffff", 0.78);
+  context.fillText(name, namePlate.centerX, namePlate.centerY + 2);
+  context.restore();
+};
+
+const drawCardBackdrop = (
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  settings: EditorState,
+  template: EidTemplate,
+  templateImage: HTMLImageElement | null,
+  backgroundImage: HTMLImageElement | null
+): ImagePlacement | null => {
+  const hasTemplateArtwork = templateImage !== null;
+  const overlayOpacity = clamp(settings.overlayStrength / 100, 0.25, 0.92);
+  const baseGradient = context.createLinearGradient(0, 0, width, height);
+
+  baseGradient.addColorStop(0, template.palette.backdropStart);
+  baseGradient.addColorStop(1, template.palette.backdropEnd);
+  context.fillStyle = baseGradient;
+  context.fillRect(0, 0, width, height);
+
+  if (backgroundImage) {
+    drawImageCover(context, backgroundImage, width, height);
+  }
+
+  if (!hasTemplateArtwork || backgroundImage) {
+    drawAmbientLayers(
+      context,
+      width,
+      height,
+      settings.accentColor,
+      template.palette.glow,
+      template.palette.border
+    );
+  }
+
+  const topGlow = context.createRadialGradient(
+    width * 0.8,
+    height * 0.16,
+    width * 0.04,
+    width * 0.8,
+    height * 0.16,
+    width * 0.45
+  );
+  topGlow.addColorStop(0, hexToRgba(settings.accentColor, 0.36));
+  topGlow.addColorStop(1, hexToRgba(template.palette.glow, 0));
+  context.fillStyle = topGlow;
+  context.fillRect(0, 0, width, height);
+
+  const sideGlow = context.createRadialGradient(
+    width * 0.06,
+    height * 0.64,
+    width * 0.04,
+    width * 0.06,
+    height * 0.64,
+    width * 0.5
+  );
+  sideGlow.addColorStop(0, hexToRgba(template.palette.glow, 0.18));
+  sideGlow.addColorStop(1, hexToRgba(template.palette.glow, 0));
+  context.fillStyle = sideGlow;
+  context.fillRect(0, 0, width, height);
+
+  const atmosphere = context.createLinearGradient(0, 0, 0, height);
+  atmosphere.addColorStop(
+    0,
+    hexToRgba("#08121d", backgroundImage ? overlayOpacity : 0.14)
+  );
+  atmosphere.addColorStop(
+    1,
+    hexToRgba("#0c1924", backgroundImage ? overlayOpacity * 1.08 : 0.2)
+  );
+  context.fillStyle = atmosphere;
+  context.fillRect(0, 0, width, height);
+
+  if (templateImage) {
+    return settings.sizeId === "portrait"
+      ? drawImageCover(context, templateImage, width, height)
+      : drawImageContainWithBackdrop(context, templateImage, width, height);
+  }
+
+  drawGeneratedTemplateArtwork(context, width, height, settings, template);
+  return null;
 };
 
 export const renderGreetingCard = ({
@@ -852,129 +1057,17 @@ export const renderGreetingCard = ({
   }
 
   const { palette } = template;
-  const overlayOpacity = clamp(settings.overlayStrength / 100, 0.25, 0.92);
-  const hasTemplateArtwork = templateImage !== null;
 
   context.clearRect(0, 0, width, height);
-
-  const baseGradient = context.createLinearGradient(0, 0, width, height);
-  baseGradient.addColorStop(0, palette.backdropStart);
-  baseGradient.addColorStop(1, palette.backdropEnd);
-  context.fillStyle = baseGradient;
-  context.fillRect(0, 0, width, height);
-
-  if (backgroundImage) {
-    drawImageCover(context, backgroundImage, width, height);
-  }
-
-  if (!hasTemplateArtwork || backgroundImage) {
-    drawAmbientLayers(
-      context,
-      width,
-      height,
-      settings.accentColor,
-      palette.glow,
-      palette.border
-    );
-  }
-
-  const topGlow = context.createRadialGradient(
-    width * 0.8,
-    height * 0.16,
-    width * 0.04,
-    width * 0.8,
-    height * 0.16,
-    width * 0.45
+  const templateImagePlacement = drawCardBackdrop(
+    context,
+    width,
+    height,
+    settings,
+    template,
+    templateImage,
+    backgroundImage
   );
-  topGlow.addColorStop(0, hexToRgba(settings.accentColor, 0.36));
-  topGlow.addColorStop(1, hexToRgba(palette.glow, 0));
-  context.fillStyle = topGlow;
-  context.fillRect(0, 0, width, height);
-
-  const sideGlow = context.createRadialGradient(
-    width * 0.06,
-    height * 0.64,
-    width * 0.04,
-    width * 0.06,
-    height * 0.64,
-    width * 0.5
-  );
-  sideGlow.addColorStop(0, hexToRgba(palette.glow, 0.18));
-  sideGlow.addColorStop(1, hexToRgba(palette.glow, 0));
-  context.fillStyle = sideGlow;
-  context.fillRect(0, 0, width, height);
-
-  const atmosphere = context.createLinearGradient(0, 0, 0, height);
-  atmosphere.addColorStop(
-    0,
-    hexToRgba("#08121d", backgroundImage ? overlayOpacity : 0.14)
-  );
-  atmosphere.addColorStop(
-    1,
-    hexToRgba("#0c1924", backgroundImage ? overlayOpacity * 1.08 : 0.2)
-  );
-  context.fillStyle = atmosphere;
-  context.fillRect(0, 0, width, height);
-
-  if (hasTemplateArtwork) {
-    drawImageCover(context, templateImage, width, height);
-  } else {
-    drawPatternField(
-      context,
-      width,
-      height,
-      settings.accentColor,
-      palette.border
-    );
-    drawSkyline(context, width, height, palette.text, settings.accentColor);
-    drawSparkles(context, width, height, palette.accentSoft);
-
-    switch (template.decoration) {
-      case "arch": {
-        drawArchDecoration(
-          context,
-          width,
-          height,
-          settings.accentColor,
-          palette.glow
-        );
-        break;
-      }
-      case "crescent": {
-        drawCrescentDecoration(
-          context,
-          width,
-          height,
-          settings.accentColor,
-          palette.glow
-        );
-        break;
-      }
-      case "lantern": {
-        drawLanternDecoration(
-          context,
-          width,
-          height,
-          settings.accentColor,
-          palette.glow
-        );
-        break;
-      }
-      case "mosaic": {
-        drawMosaicDecoration(
-          context,
-          width,
-          height,
-          settings.accentColor,
-          palette.glow
-        );
-        break;
-      }
-      default: {
-        break;
-      }
-    }
-  }
 
   context.save();
   context.lineWidth = 2;
@@ -985,171 +1078,20 @@ export const renderGreetingCard = ({
 
   drawCornerOrnaments(context, width, height, palette.border);
 
-  const textLayout = resolveTextLayout(
-    width,
-    height,
-    settings.alignment,
-    settings.textX,
-    settings.textY
-  );
-  const headingSize = clamp(settings.titleSize, 68, 136);
-  const bodySize = clamp(settings.bodySize, 28, 48);
-  const recipientLine = settings.recipient.trim()
-    ? `Untuk ${settings.recipient.trim()}`
-    : "Untuk orang-orang tercinta";
-  const bodyText = settings.message.trim() || template.defaultMessage;
-  const senderLine = settings.sender.trim()
-    ? `Salam hangat, ${settings.sender.trim()}`
-    : "Salam hangat di hari kemenangan";
+  const senderName = settings.sender.trim() || "Nama Anda";
+  const namePlate =
+    templateImage && templateImagePlacement
+      ? resolveNamePlate(template, templateImagePlacement, templateImage)
+      : null;
 
-  context.textAlign = settings.alignment;
-
-  context.font = `700 ${Math.round(bodySize * 0.74)}px ${fonts.body}`;
-  const badgeWidth = Math.min(
-    context.measureText(template.badge).width + 48,
-    textLayout.maxWidth * 0.65
-  );
-  let badgeX = textLayout.drawX - badgeWidth / 2;
-
-  if (settings.alignment === "left") {
-    badgeX = textLayout.left;
-  } else if (settings.alignment === "right") {
-    badgeX = textLayout.drawX - badgeWidth;
+  if (namePlate) {
+    drawNamePlateText(context, namePlate, senderName, fonts);
   }
-
-  const badgeY = textLayout.top - 82;
-
-  drawRoundedRect(context, badgeX, badgeY, badgeWidth, 46, 23);
-  context.fillStyle = hexToRgba(settings.accentColor, 0.22);
-  context.fill();
-  context.strokeStyle = hexToRgba(palette.border, 0.28);
-  context.lineWidth = 1.5;
-  context.stroke();
-
-  context.fillStyle = hexToRgba(settings.textColor, 0.88);
-  context.textBaseline = "middle";
-  context.fillText(template.badge, textLayout.drawX, badgeY + 23);
-
-  context.font = `600 ${Math.round(bodySize * 0.72)}px ${fonts.body}`;
-  const recipientHeight = bodySize * 0.92;
-  const kickerHeight = bodySize * 0.78;
-  const titleHeight = headingSize * 0.92;
-  const messageLineHeight = bodySize * 1.34;
-  const footerHeight = bodySize * 0.96;
-  const titleGap = 20;
-  const sectionGap = 18;
-  const footerGap = 24;
-
-  context.font = `500 ${bodySize}px ${fonts.body}`;
-  const bodyLines = wrapText(context, bodyText, textLayout.maxWidth);
-  const bodyHeight = Math.max(bodyLines.length, 1) * messageLineHeight;
-  const panelHeight =
-    PANEL_PADDING * 2 +
-    kickerHeight +
-    sectionGap +
-    titleHeight +
-    titleGap +
-    recipientHeight +
-    sectionGap +
-    bodyHeight +
-    footerGap +
-    footerHeight;
-  const panelY = textLayout.top - PANEL_PADDING;
-  const panelWidth = textLayout.maxWidth + PANEL_PADDING * 2;
-  const panelX = textLayout.left - PANEL_PADDING;
-
-  context.save();
-  context.shadowBlur = 34;
-  context.shadowColor = hexToRgba("#000000", backgroundImage ? 0.3 : 0.18);
-  context.shadowOffsetY = 18;
-  drawRoundedRect(context, panelX, panelY, panelWidth, panelHeight, 32);
-  context.fillStyle = hexToRgba("#000000", 0.08);
-  context.fill();
-  context.restore();
-
-  drawRoundedRect(context, panelX, panelY, panelWidth, panelHeight, 32);
-  const panelGradient = context.createLinearGradient(
-    panelX,
-    panelY,
-    panelX,
-    panelY + panelHeight
-  );
-  panelGradient.addColorStop(
-    0,
-    backgroundImage
-      ? hexToRgba("#07131a", overlayOpacity * 0.58)
-      : hexToRgba("#0b1422", 0.3)
-  );
-  panelGradient.addColorStop(
-    1,
-    backgroundImage
-      ? hexToRgba("#07131a", overlayOpacity * 0.44)
-      : hexToRgba("#0b1422", 0.2)
-  );
-  context.fillStyle = panelGradient;
-  context.fill();
-  context.strokeStyle = hexToRgba(palette.border, 0.24);
-  context.lineWidth = 1.5;
-  context.stroke();
-
-  drawRoundedRect(
-    context,
-    panelX + 10,
-    panelY + 10,
-    panelWidth - 20,
-    panelHeight - 20,
-    26
-  );
-  context.strokeStyle = hexToRgba(palette.glow, 0.08);
-  context.lineWidth = 1;
-  context.stroke();
-
-  context.beginPath();
-  context.moveTo(panelX + 28, panelY + 26);
-  context.lineTo(panelX + 118, panelY + 26);
-  context.strokeStyle = hexToRgba(settings.accentColor, 0.55);
-  context.lineWidth = 3;
-  context.stroke();
-
-  let cursorY = textLayout.top;
-
-  context.textBaseline = "alphabetic";
-  context.font = `600 ${Math.round(bodySize * 0.72)}px ${fonts.body}`;
-  context.fillStyle = hexToRgba(settings.textColor, 0.82);
-  context.fillText(template.kicker, textLayout.drawX, cursorY);
-
-  cursorY += kickerHeight + sectionGap;
-
-  context.font = `700 ${headingSize}px ${fonts.display}`;
-  context.fillStyle = settings.textColor;
-  context.fillText(template.headline, textLayout.drawX, cursorY);
-
-  cursorY += titleHeight + titleGap;
-
-  context.font = `700 ${Math.round(bodySize * 0.78)}px ${fonts.body}`;
-  context.fillStyle = hexToRgba(settings.accentColor, 0.96);
-  context.fillText(recipientLine, textLayout.drawX, cursorY);
-
-  cursorY += recipientHeight + sectionGap;
-
-  context.font = `500 ${bodySize}px ${fonts.body}`;
-  context.fillStyle = hexToRgba(settings.textColor, 0.92);
-
-  for (const line of bodyLines) {
-    context.fillText(line, textLayout.drawX, cursorY);
-    cursorY += messageLineHeight;
-  }
-
-  cursorY += footerGap - (messageLineHeight - footerHeight);
-
-  context.font = `600 ${Math.round(bodySize * 0.76)}px ${fonts.body}`;
-  context.fillStyle = hexToRgba(settings.textColor, 0.8);
-  context.fillText(senderLine, textLayout.drawX, cursorY);
 
   return {
-    height: panelHeight,
-    width: panelWidth,
-    x: panelX,
-    y: panelY,
+    height: 0,
+    width: 0,
+    x: 0,
+    y: 0,
   };
 };
