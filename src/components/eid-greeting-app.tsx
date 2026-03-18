@@ -1057,7 +1057,7 @@ export function EidGreetingApp() {
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <header className="rounded-[32px] border border-[#dff1b7] bg-white px-5 py-5 shadow-[0_24px_60px_rgba(69,154,0,0.08)] sm:px-7">
           <div className="grid grid-cols-2 gap-5 sm:grid-cols-[96px_minmax(0,1fr)_96px] sm:items-center md:grid-cols-[112px_minmax(0,1fr)_112px]">
-            <div className="order-2 flex justify-center sm:order-none sm:col-start-1 sm:row-start-1 sm:justify-start">
+            <div className="order-1 flex justify-end sm:order-none sm:col-start-1 sm:row-start-1 sm:justify-start">
               <div className="relative flex h-20 w-20 items-center justify-center sm:h-24 sm:w-24 md:h-28 md:w-28">
                 <Image
                   alt="Logo Yayasan AN-NAHL"
@@ -1069,23 +1069,23 @@ export function EidGreetingApp() {
                 />
               </div>
             </div>
-            <div className="order-1 col-span-2 text-center sm:order-none sm:col-span-1 sm:col-start-2 sm:row-start-1">
-              <p className="font-semibold text-[#4d9300] text-sm uppercase tracking-[0.22em] sm:text-lg sm:tracking-[0.3em]">
+            <div className="order-3 col-span-2 text-center sm:order-none sm:col-span-1 sm:col-start-2 sm:row-start-1">
+              <p className="whitespace-nowrap font-semibold text-[#4d9300] text-[0.72rem] uppercase tracking-[0.16em] sm:text-lg sm:tracking-[0.3em]">
                 Yayasan Pendidikan Yatim & Dhu&apos;afa An-Nahl
               </p>
-              <p className="mt-1 font-semibold text-[#4d9300] text-sm uppercase tracking-[0.22em] sm:text-lg sm:tracking-[0.3em]">
+              <p className="mt-1 whitespace-nowrap font-semibold text-[#4d9300] text-[0.72rem] uppercase tracking-[0.16em] sm:text-lg sm:tracking-[0.3em]">
                 Pondok Pesantren Tahfizh Al-Uswah
               </p>
               <h1
-                className={`${displayFont.className} mt-3 text-2xl text-[#2f1d19] leading-none sm:text-3xl`}
+                className={`${displayFont.className} mt-3 whitespace-nowrap text-[#2f1d19] text-[2rem] leading-none sm:text-3xl`}
               >
                 Kartu Ucapan Idul Fitri
               </h1>
-              <p className="mx-auto mt-3 max-w-3xl text-[#6b5a46] text-sm leading-6 sm:text-base">
+              <p className="mx-auto mt-3 max-w-3xl whitespace-nowrap text-[#6b5a46] text-[0.72rem] leading-5 sm:text-base sm:leading-6">
                 Isi nama, pilih template, lalu unduh kartu ucapan Idul Fitri.
               </p>
             </div>
-            <div className="order-3 flex justify-center sm:order-none sm:col-start-3 sm:row-start-1 sm:justify-end">
+            <div className="order-2 flex justify-start sm:order-none sm:col-start-3 sm:row-start-1 sm:justify-end">
               <div className="relative flex h-20 w-20 items-center justify-center sm:h-24 sm:w-24 md:h-28 md:w-28">
                 <Image
                   alt="Logo Pondok Pesantren Tahfizh Al-Uswah"
@@ -1107,20 +1107,20 @@ export function EidGreetingApp() {
                 <div className="grid gap-4">
                   <label className="flex flex-col gap-2">
                     <span className="font-medium text-[#5e4b3a] text-sm">
-                      Nama Anda
+                      Nama Anda & Keluarga
                     </span>
                     <input
                       className="rounded-[18px] border border-[#dfe8bf] bg-white px-4 py-3 text-[#2f1d19] text-base outline-none transition focus:border-[#59cd00]"
                       onChange={(event) =>
                         updateSettings({ sender: event.target.value })
                       }
-                      placeholder="Mis. Marfin Pro"
+                      placeholder="Mis. Abdullah & Keluarga"
                       type="text"
                       value={settings.sender}
                     />
                     <span className="text-[#7a6a57] text-xs leading-5">
-                      Isi nama untuk melihat hasilnya di preview, lalu pilih
-                      template yang Anda inginkan,
+                      Isi nama untuk melihat hasilnya di LIVE PREVIEW, lalu
+                      pilih template yang Anda inginkan,
                     </span>
                   </label>
                   <div className="grid gap-3">
@@ -1269,37 +1269,6 @@ export function EidGreetingApp() {
                         );
                       })}
                     </div>
-
-                    <label className="flex flex-col gap-2">
-                      <span className="font-medium text-[#5e4b3a] text-sm">
-                        Nama Anda
-                      </span>
-                      <input
-                        className="rounded-[18px] border border-[#dfe8bf] bg-white px-4 py-3 text-[#2f1d19] text-base outline-none transition focus:border-[#59cd00]"
-                        onChange={(event) =>
-                          updateSettings({ sender: event.target.value })
-                        }
-                        placeholder="Mis. Marfin Pro"
-                        type="text"
-                        value={settings.sender}
-                      />
-                      <span className="text-[#7a6a57] text-xs leading-5">
-                        Nama ini akan tampil di panel ornamen tengah.
-                      </span>
-                    </label>
-
-                    <label className="flex flex-col gap-2">
-                      <span className="font-medium text-[#5e4b3a] text-sm">
-                        Pesan utama
-                      </span>
-                      <textarea
-                        className="min-h-36 rounded-[22px] border border-[#dfe8bf] bg-white px-4 py-4 text-[#2f1d19] text-base leading-7 outline-none transition focus:border-[#59cd00]"
-                        onChange={(event) =>
-                          updateSettings({ message: event.target.value })
-                        }
-                        value={settings.message}
-                      />
-                    </label>
 
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="grid gap-3">
