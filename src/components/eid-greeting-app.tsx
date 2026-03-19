@@ -96,6 +96,15 @@ interface SwatchButtonProps {
   readonly onClick: () => void;
 }
 
+interface ShareModalProps {
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly onCopyText: () => Promise<void>;
+  readonly onShareToSocial: () => Promise<void>;
+  readonly onShareToWhatsApp: () => Promise<void>;
+  readonly shareText: string;
+}
+
 const ALIGNMENT_OPTIONS = [
   {
     id: "left",
@@ -327,13 +336,10 @@ const copyTextToClipboard = async (value: string): Promise<boolean> => {
 
 interface ShareData {
   readonly text: string;
-  readonly title: string;
 }
 
 interface SharePayload {
   readonly files?: File[];
-  readonly text?: string;
-  readonly title: string;
 }
 
 interface ShareResult {
@@ -341,8 +347,43 @@ interface ShareResult {
   readonly status: "cancelled" | "failed" | "shared-file";
 }
 
+type ShareTarget = "social" | "whatsapp";
+
 const canSharePayload = (payload: SharePayload): boolean => {
   return navigator.canShare ? navigator.canShare(payload) : true;
+};
+
+const openWhatsAppShareWindow = (text: string): boolean => {
+  const shareUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  const popup = window.open(shareUrl, "_blank", "noopener,noreferrer");
+
+  return popup !== null;
+};
+
+const buildWhatsAppFallbackMessage = (
+  didOpenWhatsApp: boolean,
+  didCopyText: boolean,
+  needsManualImageUpload = false
+): string => {
+  if (didOpenWhatsApp) {
+    if (needsManualImageUpload) {
+      return "WhatsApp dibuka. Gambar perlu dilampirkan manual jika browser tidak mendukung share file langsung.";
+    }
+
+    return didCopyText
+      ? "WhatsApp dibuka. Ucapan sudah disalin ke clipboard."
+      : "WhatsApp dibuka.";
+  }
+
+  return didCopyText
+    ? "WhatsApp tidak bisa dibuka. Ucapan disalin ke clipboard."
+    : "WhatsApp tidak tersedia di browser ini.";
+};
+
+const getShareTargetMessage = (target: ShareTarget): string => {
+  return target === "whatsapp"
+    ? "Dialog share gambar sudah dibuka. Pilih WhatsApp untuk melanjutkan pengiriman."
+    : "Dialog share gambar sudah dibuka. Pilih media sosial tujuan.";
 };
 
 const runNativeShare = async (
@@ -366,9 +407,12 @@ const shareCanvasImage = async (
   shareData: ShareData
 ): Promise<ShareResult> => {
   if (!navigator.share) {
+    const didCopyText = await copyTextToClipboard(shareData.text);
+
     return {
-      message:
-        "Share gambar langsung hanya tersedia di browser mobile yang mendukung native share.",
+      message: didCopyText
+        ? "Share gambar langsung hanya tersedia di browser mobile yang mendukung native share. Ucapan sudah disalin ke clipboard."
+        : "Share gambar langsung hanya tersedia di browser mobile yang mendukung native share.",
       status: "failed",
     };
   }
@@ -379,34 +423,10 @@ const shareCanvasImage = async (
       type: "image/png",
     });
     const fileShareData = {
-      ...shareData,
       files: [file],
     } satisfies SharePayload;
 
-    if (canSharePayload(fileShareData)) {
-      const shareStatus = await runNativeShare(fileShareData);
-
-      if (shareStatus === "shared-file") {
-        return {
-          message: "Preview siap dibagikan ke WhatsApp atau media sosial.",
-          status: "shared-file",
-        };
-      }
-
-      if (shareStatus === "cancelled") {
-        return {
-          message: null,
-          status: "cancelled",
-        };
-      }
-    }
-
-    const fileOnlyShareData = {
-      files: [file],
-      title: shareData.title,
-    } satisfies SharePayload;
-
-    if (!canSharePayload(fileOnlyShareData)) {
+    if (!canSharePayload(fileShareData)) {
       return {
         message:
           "Browser ini tidak mendukung share gambar langsung. Gunakan Download lalu bagikan manual.",
@@ -414,11 +434,10 @@ const shareCanvasImage = async (
       };
     }
 
-    const fileOnlyStatus = await runNativeShare(fileOnlyShareData);
+    const didCopyText = await copyTextToClipboard(shareData.text);
+    const shareStatus = await runNativeShare(fileShareData);
 
-    if (fileOnlyStatus === "shared-file") {
-      const didCopyText = await copyTextToClipboard(shareData.text);
-
+    if (shareStatus === "shared-file") {
       return {
         message: didCopyText
           ? "Gambar dibagikan. Teks ucapan disalin ke clipboard untuk ditempel di WhatsApp atau media sosial."
@@ -427,7 +446,7 @@ const shareCanvasImage = async (
       };
     }
 
-    if (fileOnlyStatus === "cancelled") {
+    if (shareStatus === "cancelled") {
       return {
         message: null,
         status: "cancelled",
@@ -872,11 +891,234 @@ function GalleryCard({ index, onUseTemplate, template }: GalleryCardProps) {
   );
 }
 
+function ShareWhatsAppIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="30"
+      viewBox="0 0 24 24"
+      width="30"
+    >
+      <path
+        d="M12 2.5c-5.19 0-9.4 4.08-9.4 9.11 0 1.61.44 3.19 1.27 4.58L2.7 21.5l5.54-1.1A9.55 9.55 0 0 0 12 21.17c5.19 0 9.4-4.08 9.4-9.11S17.19 2.5 12 2.5Z"
+        fill="#25d366"
+      />
+      <path
+        d="M9.24 7.7c.19-.42.38-.44.58-.45h.5c.17 0 .42.07.64.57.23.5.79 1.92.85 2.06.06.14.1.29.02.48-.08.18-.14.29-.28.46-.14.16-.29.35-.41.47-.14.14-.29.28-.13.56.16.28.71 1.16 1.52 1.88 1.04.93 1.92 1.21 2.2 1.34.27.13.43.11.6-.07.16-.19.69-.8.87-1.08.18-.28.37-.23.62-.14.25.09 1.59.74 1.86.88.27.14.45.2.51.32.06.12.06.69-.16 1.35-.22.66-1.3 1.26-1.81 1.34-.46.08-1.04.1-1.68-.11-.39-.13-.87-.28-1.49-.55-2.62-1.13-4.33-3.88-4.46-4.06-.13-.18-1.07-1.43-1.07-2.73 0-1.31.68-1.95.93-2.22Z"
+        fill="#fff"
+      />
+    </svg>
+  );
+}
+
+function ShareSocialIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="30"
+      viewBox="0 0 24 24"
+      width="30"
+    >
+      <path
+        d="M16.5 7a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM6 14.5A2.5 2.5 0 1 0 6 9.5a2.5 2.5 0 0 0 0 5ZM16.5 22a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"
+        fill="#4d9300"
+      />
+      <path
+        d="m8.24 11.17 5.98-3.34M8.24 12.83l5.98 3.34"
+        stroke="#4d9300"
+        strokeLinecap="round"
+        strokeWidth="2.2"
+      />
+    </svg>
+  );
+}
+
+function ShareCopyIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="26"
+      viewBox="0 0 24 24"
+      width="26"
+    >
+      <rect
+        height="12"
+        rx="2.5"
+        stroke="#4d9300"
+        strokeWidth="2"
+        width="12"
+        x="8"
+        y="8"
+      />
+      <path
+        d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"
+        stroke="#4d9300"
+        strokeLinecap="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function ShareCloseIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="20"
+      viewBox="0 0 24 24"
+      width="20"
+    >
+      <path
+        d="M18 6 6 18M6 6l12 12"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function ShareActionButton({
+  children,
+  description,
+  onClick,
+  title,
+}: {
+  readonly children: React.ReactNode;
+  readonly description: string;
+  readonly onClick: () => Promise<void>;
+  readonly title: string;
+}) {
+  return (
+    <button
+      className="group rounded-[24px] border border-[#dfeab3] bg-white px-4 py-4 text-left shadow-[0_12px_30px_rgba(69,154,0,0.08)] transition hover:-translate-y-0.5 hover:border-[#59cd00] hover:shadow-[0_18px_38px_rgba(69,154,0,0.12)]"
+      onClick={onClick}
+      type="button"
+    >
+      <span className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-[#dfeab3] bg-white transition group-hover:bg-[#f6ffe6]">
+        {children}
+      </span>
+      <span className="mt-4 block font-semibold text-[#2f5a1f] text-sm">
+        {title}
+      </span>
+      <span className="mt-1 block text-[#5e8a31] text-xs leading-5">
+        {description}
+      </span>
+    </button>
+  );
+}
+
+function ShareModal({
+  isOpen,
+  onClose,
+  onCopyText,
+  onShareToSocial,
+  onShareToWhatsApp,
+  shareText,
+}: ShareModalProps) {
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <div
+      aria-labelledby="share-modal-title"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+      role="dialog"
+    >
+      <button
+        aria-label="Tutup modal share"
+        className="absolute inset-0 bg-[rgba(27,41,11,0.45)] backdrop-blur-[4px]"
+        onClick={onClose}
+        type="button"
+      />
+      <div className="relative w-full max-w-[38rem] overflow-hidden rounded-[36px] border border-[#dfeab3] bg-white shadow-[0_32px_90px_rgba(26,64,15,0.22)]">
+        <div className="bg-[linear-gradient(135deg,#3f8500_0%,#4d9300_48%,#67ae11_100%)] px-6 py-6 text-white sm:px-8">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="font-semibold text-white/78 text-xs uppercase tracking-[0.28em]">
+                Social Share
+              </p>
+              <h3
+                className={`${displayFont.className} mt-3 text-3xl leading-none sm:text-[2.6rem]`}
+                id="share-modal-title"
+              >
+                Bagikan Kartu
+              </h3>
+              <p className="mt-3 max-w-xl text-sm text-white/88 leading-6 sm:text-base">
+                Pilih tujuan share yang Anda inginkan, lalu kirim kartu ucapan
+                dengan nuansa warna yang selaras dengan identitas Al-Uswah.
+              </p>
+            </div>
+            <button
+              aria-label="Tutup"
+              className="rounded-full border border-white/35 bg-white/10 p-2 text-white transition hover:bg-white/16"
+              onClick={onClose}
+              type="button"
+            >
+              <ShareCloseIcon />
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-6 px-6 py-6 sm:px-8 sm:py-8">
+          <div>
+            <p className="font-semibold text-[#31452b] text-lg">Bagikan via</p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <ShareActionButton
+                description="Buka WhatsApp untuk kirim kartu ucapan dan siapkan teks pendamping."
+                onClick={onShareToWhatsApp}
+                title="WhatsApp"
+              >
+                <ShareWhatsAppIcon />
+              </ShareActionButton>
+              <ShareActionButton
+                description="Buka dialog share untuk Instagram, Facebook, Telegram, dan aplikasi sosial lain."
+                onClick={onShareToSocial}
+                title="Media Sosial"
+              >
+                <ShareSocialIcon />
+              </ShareActionButton>
+            </div>
+          </div>
+
+          <div>
+            <p className="font-semibold text-[#31452b] text-lg">Salin Ucapan</p>
+            <div className="mt-4 rounded-[26px] border border-[#dfeab3] bg-white p-4 shadow-inner">
+              <div className="flex items-start gap-4">
+                <span className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] bg-white shadow-[0_10px_24px_rgba(69,154,0,0.08)]">
+                  <ShareCopyIcon />
+                </span>
+                <p className="whitespace-pre-line text-[#2f5a1f] text-sm leading-6 sm:text-base">
+                  {shareText}
+                </p>
+              </div>
+            </div>
+            <button
+              className="mt-4 w-full rounded-[22px] bg-[linear-gradient(135deg,#3f8500_0%,#4d9300_52%,#67ae11_100%)] px-5 py-4 font-semibold text-base text-white shadow-[0_18px_40px_rgba(77,147,0,0.22)] transition hover:brightness-[1.03]"
+              onClick={onCopyText}
+              type="button"
+            >
+              Salin Ucapan
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function EidGreetingApp() {
   const [activeTab, setActiveTab] = useState<StudioTab>("simple");
   const [backgroundImage, setBackgroundImage] =
     useState<HTMLImageElement | null>(null);
   const [isDraggingText, setIsDraggingText] = useState(false);
+  const [isShareOptionsOpen, setIsShareOptionsOpen] = useState(false);
   const [settings, setSettings] = useState<EditorState>({
     ...DEFAULT_SETTINGS,
   });
@@ -890,6 +1132,7 @@ export function EidGreetingApp() {
   const selectedTemplateImage = useTemplateImageWithFallback(
     selectedTemplate.editorImagePath
   );
+  const shareText = buildGreetingCopy(selectedTemplate, settings);
 
   useEffect(() => {
     const message = statusMessage;
@@ -906,6 +1149,28 @@ export function EidGreetingApp() {
       window.clearTimeout(timeoutId);
     };
   }, [statusMessage]);
+
+  useEffect(() => {
+    if (!isShareOptionsOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        setIsShareOptionsOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isShareOptionsOpen]);
 
   useEffect(() => {
     const source = settings.backgroundSource;
@@ -1038,9 +1303,9 @@ export function EidGreetingApp() {
   };
 
   const handleCopyText = async (): Promise<void> => {
-    const didCopyText = await copyTextToClipboard(
-      buildGreetingCopy(selectedTemplate, settings)
-    );
+    setIsShareOptionsOpen(false);
+
+    const didCopyText = await copyTextToClipboard(shareText);
 
     if (!didCopyText) {
       setStatusMessage("Teks ucapan tidak bisa disalin.");
@@ -1050,12 +1315,37 @@ export function EidGreetingApp() {
     setStatusMessage("Teks ucapan disalin ke clipboard.");
   };
 
-  const handleShare = async (): Promise<void> => {
-    const shareText = buildGreetingCopy(selectedTemplate, settings);
+  const handleShare = (): void => {
+    setIsShareOptionsOpen((current) => !current);
+  };
+
+  const openWhatsAppFallback = async (
+    shareText: string,
+    needsManualImageUpload = false
+  ): Promise<void> => {
+    const didOpenWhatsApp = openWhatsAppShareWindow(shareText);
+    const didCopyText = await copyTextToClipboard(shareText);
+
+    setStatusMessage(
+      buildWhatsAppFallbackMessage(
+        didOpenWhatsApp,
+        didCopyText,
+        needsManualImageUpload
+      )
+    );
+  };
+
+  const handleShareTarget = async (target: ShareTarget): Promise<void> => {
+    setIsShareOptionsOpen(false);
+
     const shareData = {
       text: shareText,
-      title: selectedTemplate.defaultMessage,
     } satisfies ShareData;
+
+    if (target === "whatsapp" && !navigator.share) {
+      await openWhatsAppFallback(shareText);
+      return;
+    }
 
     const canvas = syncRender();
 
@@ -1073,7 +1363,25 @@ export function EidGreetingApp() {
       return;
     }
 
+    if (target === "whatsapp" && result.status === "failed") {
+      await openWhatsAppFallback(shareText, true);
+      return;
+    }
+
+    if (result.status === "shared-file") {
+      setStatusMessage(getShareTargetMessage(target));
+      return;
+    }
+
     setStatusMessage(result.message);
+  };
+
+  const handleShareToWhatsApp = (): Promise<void> => {
+    return handleShareTarget("whatsapp");
+  };
+
+  const handleShareToSocial = (): Promise<void> => {
+    return handleShareTarget("social");
   };
 
   const handleCanvasPointerDown = (
@@ -1725,6 +2033,16 @@ export function EidGreetingApp() {
           </p>
         </footer>
       </div>
+      <ShareModal
+        isOpen={isShareOptionsOpen}
+        onClose={() => {
+          setIsShareOptionsOpen(false);
+        }}
+        onCopyText={handleCopyText}
+        onShareToSocial={handleShareToSocial}
+        onShareToWhatsApp={handleShareToWhatsApp}
+        shareText={shareText}
+      />
     </div>
   );
 }
