@@ -127,54 +127,6 @@ const isValidSharedTemplateId = (value: string): value is EidTemplate["id"] => {
   return EID_TEMPLATES.some((template) => template.id === value);
 };
 
-const buildShareLink = (
-  settings: Pick<EditorState, "sender" | "templateId">
-): string => {
-  if (typeof window === "undefined") {
-    return "";
-  }
-
-  const shareUrl = new URL(window.location.href);
-  shareUrl.searchParams.set("template", settings.templateId);
-
-  const senderName = settings.sender.trim();
-
-  if (senderName) {
-    shareUrl.searchParams.set("sender", senderName);
-  } else {
-    shareUrl.searchParams.delete("sender");
-  }
-
-  return shareUrl.toString();
-};
-
-const buildSocialShareUrl = (
-  platform: Exclude<SharePlatform, "instagram">,
-  shareLink: string,
-  message: string
-): string => {
-  const encodedLink = encodeURIComponent(shareLink);
-  const encodedMessage = encodeURIComponent(message);
-
-  switch (platform) {
-    case "facebook":
-      return `https://www.facebook.com/sharer/sharer.php?u=${encodedLink}`;
-    case "linkedin":
-      return `https://www.linkedin.com/sharing/share-offsite/?url=${encodedLink}`;
-    case "twitter":
-      return `https://twitter.com/intent/tweet?url=${encodedLink}&text=${encodedMessage}`;
-    case "whatsapp":
-      return `https://wa.me/?text=${encodeURIComponent(`${message}\n\n${shareLink}`)}`;
-    default:
-      return shareLink;
-  }
-};
-
-const openExternalShareLink = (url: string): boolean => {
-  const popup = window.open(url, "_blank", "noopener,noreferrer");
-  return popup !== null;
-};
-
 const shareFilesWithCaption = async (
   file: File,
   text: string
@@ -588,7 +540,6 @@ export function EidGreetingApp() {
     selectedTemplate.editorImagePath
   );
   const shareText = buildGreetingCopy(selectedTemplate, settings);
-  const shareLink = buildShareLink(settings);
 
   useEffect(() => {
     const message = statusMessage;
@@ -744,51 +695,9 @@ export function EidGreetingApp() {
     const platformLabel = SHARE_PLATFORM_LABELS[platform];
     const didCopyText = await copyTextToClipboard(shareText);
 
-    if (platform === "instagram") {
-      const didOpenInstagram = openExternalShareLink(
-        "https://www.instagram.com/"
-      );
-
-      if (didOpenInstagram && didCopyText) {
-        setStatusMessage(
-          "Browser belum bisa melampirkan gambar langsung ke Instagram. Instagram dibuka dan ucapan disalin ke clipboard."
-        );
-        return;
-      }
-
-      if (didOpenInstagram) {
-        setStatusMessage(
-          "Browser belum bisa melampirkan gambar langsung ke Instagram."
-        );
-        return;
-      }
-
+    if (didCopyText) {
       setStatusMessage(
-        "Browser belum mendukung lampiran gambar langsung ke Instagram. Gunakan Download lalu kirim manual."
-      );
-      return;
-    }
-
-    if (!shareLink) {
-      setStatusMessage(
-        `Browser belum mendukung lampiran gambar langsung ke ${platformLabel}.`
-      );
-      return;
-    }
-
-    const shareUrl = buildSocialShareUrl(platform, shareLink, shareText);
-    const didOpenShare = openExternalShareLink(shareUrl);
-
-    if (didOpenShare && didCopyText) {
-      setStatusMessage(
-        `${platformLabel} dibuka. Browser belum bisa melampirkan gambar langsung, tetapi ucapan sudah disalin ke clipboard.`
-      );
-      return;
-    }
-
-    if (didOpenShare) {
-      setStatusMessage(
-        `${platformLabel} dibuka tanpa lampiran gambar langsung dari browser.`
+        `Browser belum mendukung lampiran gambar langsung ke ${platformLabel}. Ucapan disalin ke clipboard, lalu gunakan Download untuk mengirim gambar secara manual.`
       );
       return;
     }
