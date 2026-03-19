@@ -312,6 +312,140 @@ const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
   });
 };
 
+const copyTextToClipboard = async (value: string): Promise<boolean> => {
+  if (!navigator.clipboard) {
+    return false;
+  }
+
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+interface ShareData {
+  readonly text: string;
+  readonly title: string;
+}
+
+interface SharePayload {
+  readonly files?: File[];
+  readonly text?: string;
+  readonly title: string;
+}
+
+interface ShareResult {
+  readonly message: string | null;
+  readonly status: "cancelled" | "failed" | "shared-file";
+}
+
+const canSharePayload = (payload: SharePayload): boolean => {
+  return navigator.canShare ? navigator.canShare(payload) : true;
+};
+
+const runNativeShare = async (
+  payload: SharePayload
+): Promise<ShareResult["status"]> => {
+  try {
+    await navigator.share(payload);
+    return "shared-file";
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return "cancelled";
+    }
+
+    return "failed";
+  }
+};
+
+const shareCanvasImage = async (
+  canvas: HTMLCanvasElement,
+  filename: string,
+  shareData: ShareData
+): Promise<ShareResult> => {
+  if (!navigator.share) {
+    return {
+      message:
+        "Share gambar langsung hanya tersedia di browser mobile yang mendukung native share.",
+      status: "failed",
+    };
+  }
+
+  try {
+    const blob = await canvasToBlob(canvas);
+    const file = new File([blob], filename, {
+      type: "image/png",
+    });
+    const fileShareData = {
+      ...shareData,
+      files: [file],
+    } satisfies SharePayload;
+
+    if (canSharePayload(fileShareData)) {
+      const shareStatus = await runNativeShare(fileShareData);
+
+      if (shareStatus === "shared-file") {
+        return {
+          message: "Preview siap dibagikan ke WhatsApp atau media sosial.",
+          status: "shared-file",
+        };
+      }
+
+      if (shareStatus === "cancelled") {
+        return {
+          message: null,
+          status: "cancelled",
+        };
+      }
+    }
+
+    const fileOnlyShareData = {
+      files: [file],
+      title: shareData.title,
+    } satisfies SharePayload;
+
+    if (!canSharePayload(fileOnlyShareData)) {
+      return {
+        message:
+          "Browser ini tidak mendukung share gambar langsung. Gunakan Download lalu bagikan manual.",
+        status: "failed",
+      };
+    }
+
+    const fileOnlyStatus = await runNativeShare(fileOnlyShareData);
+
+    if (fileOnlyStatus === "shared-file") {
+      const didCopyText = await copyTextToClipboard(shareData.text);
+
+      return {
+        message: didCopyText
+          ? "Gambar dibagikan. Teks ucapan disalin ke clipboard untuk ditempel di WhatsApp atau media sosial."
+          : "Gambar dibagikan. Tambahkan ucapan manual di aplikasi tujuan.",
+        status: "shared-file",
+      };
+    }
+
+    if (fileOnlyStatus === "cancelled") {
+      return {
+        message: null,
+        status: "cancelled",
+      };
+    }
+
+    return {
+      message: "File tidak bisa dibagikan. Coba unduh manual.",
+      status: "failed",
+    };
+  } catch {
+    return {
+      message: "Gagal menyiapkan file gambar untuk dibagikan.",
+      status: "failed",
+    };
+  }
+};
+
 const buildGreetingCopy = (
   template: EidTemplate,
   settings: EditorState
@@ -322,7 +456,7 @@ const buildGreetingCopy = (
 
   return [settings.message.trim() || template.defaultMessage, senderLine]
     .filter(Boolean)
-    .join("\n");
+    .join("\n\n");
 };
 
 const getCanvasPoint = (
@@ -904,29 +1038,24 @@ export function EidGreetingApp() {
   };
 
   const handleCopyText = async (): Promise<void> => {
-    if (!navigator.clipboard) {
-      setStatusMessage("Clipboard tidak tersedia di browser ini.");
+    const didCopyText = await copyTextToClipboard(
+      buildGreetingCopy(selectedTemplate, settings)
+    );
+
+    if (!didCopyText) {
+      setStatusMessage("Teks ucapan tidak bisa disalin.");
       return;
     }
 
-    try {
-      await navigator.clipboard.writeText(
-        buildGreetingCopy(selectedTemplate, settings)
-      );
-      setStatusMessage("Teks ucapan disalin ke clipboard.");
-    } catch {
-      setStatusMessage("Teks ucapan tidak bisa disalin.");
-    }
+    setStatusMessage("Teks ucapan disalin ke clipboard.");
   };
 
   const handleShare = async (): Promise<void> => {
-    if (!navigator.share) {
-      handleDownload();
-      setStatusMessage(
-        "Share native tidak tersedia. File diunduh sebagai gantinya."
-      );
-      return;
-    }
+    const shareText = buildGreetingCopy(selectedTemplate, settings);
+    const shareData = {
+      text: shareText,
+      title: selectedTemplate.defaultMessage,
+    } satisfies ShareData;
 
     const canvas = syncRender();
 
@@ -934,37 +1063,17 @@ export function EidGreetingApp() {
       return;
     }
 
-    try {
-      const blob = await canvasToBlob(canvas);
-      const file = new File(
-        [blob],
-        buildFilename(selectedTemplate, settings.sender),
-        {
-          type: "image/png",
-        }
-      );
+    const result = await shareCanvasImage(
+      canvas,
+      buildFilename(selectedTemplate, settings.sender),
+      shareData
+    );
 
-      if (navigator.canShare && !navigator.canShare({ files: [file] })) {
-        handleDownload();
-        setStatusMessage(
-          "Perangkat ini belum mendukung share file. PNG diunduh."
-        );
-        return;
-      }
-
-      await navigator.share({
-        files: [file],
-        text: buildGreetingCopy(selectedTemplate, settings),
-        title: selectedTemplate.defaultMessage,
-      });
-      setStatusMessage("Preview siap dibagikan.");
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        return;
-      }
-
-      setStatusMessage("File tidak bisa dibagikan. Coba unduh manual.");
+    if (result.status === "cancelled" || !result.message) {
+      return;
     }
+
+    setStatusMessage(result.message);
   };
 
   const handleCanvasPointerDown = (
@@ -1591,7 +1700,7 @@ export function EidGreetingApp() {
                 </button>
               </div>
 
-              <div className="mt-6 grid gap-4 rounded-[28px] border border-[#edf7d4] bg-white p-4 text-[#5e4b3a] text-sm leading-6">
+              <div className="mt-6 grid gap-6 rounded-[28px] border border-[#edf7d4] bg-white p-4 text-[#5e4b3a] text-sm leading-6">
                 <div className="grid gap-1">
                   <span className="font-semibold text-[#2f1d19]">Ucapan</span>
                   <span className="font-semibold text-[#2f1d19]">
