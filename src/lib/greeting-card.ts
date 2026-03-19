@@ -1078,7 +1078,7 @@ export const renderGreetingCard = ({
 
   drawCornerOrnaments(context, width, height, palette.border);
 
-  const senderName = settings.sender.trim() || "Nama Anda";
+  const senderName = settings.sender.trim() || "Nama Anda & Keluarga";
   const namePlate =
     templateImage && templateImagePlacement
       ? resolveNamePlate(template, templateImagePlacement, templateImage)

@@ -127,7 +127,7 @@ const DEFAULT_GALLERY_DIRECTION: GalleryDirection = {
   message:
     "Semoga Idulfitri menghadirkan rumah yang damai, hati yang lapang, dan langkah yang tetap lembut setelah Ramadan.",
   overlayStrength: 56,
-  sender: "Nama Anda",
+  sender: "Nama Anda & Keluarga",
   sizeId: "square",
   textX: 50,
   textY: 62,
@@ -138,10 +138,9 @@ const GALLERY_DIRECTIONS: Record<string, GalleryDirection> = {
   "template-01": {
     alignment: "center",
     bodySize: 30,
-    message:
-      "Semoga Idulfitri ini membawa hati yang lapang, rumah yang damai, dan langkah yang penuh keberkahan.",
+    message: "Selamat Hari Raya Idul Fitri 1447 H",
     overlayStrength: 64,
-    sender: "Nama Anda",
+    sender: "Nama Anda & Keluarga",
     sizeId: "square",
     textX: 50,
     textY: 67,
@@ -153,7 +152,7 @@ const GALLERY_DIRECTIONS: Record<string, GalleryDirection> = {
     message:
       "Taqabbalallahu minna wa minkum. Semoga syukur, damai, dan kebersamaan tumbuh selepas Ramadan.",
     overlayStrength: 34,
-    sender: "Nama Anda",
+    sender: "Nama Anda & Keluarga",
     sizeId: "portrait",
     textX: 50,
     textY: 66,
@@ -165,7 +164,7 @@ const GALLERY_DIRECTIONS: Record<string, GalleryDirection> = {
     message:
       "Semoga hari raya ini menguatkan silaturahmi, melapangkan rezeki, dan menghadirkan banyak kebaikan.",
     overlayStrength: 48,
-    sender: "Nama Anda",
+    sender: "Nama Anda & Keluarga",
     sizeId: "portrait",
     textX: 50,
     textY: 67,
@@ -177,7 +176,7 @@ const GALLERY_DIRECTIONS: Record<string, GalleryDirection> = {
     message:
       "Semoga setiap langkah selepas Ramadan tetap dijaga dalam ketenangan, keikhlasan, dan cinta pada sesama.",
     overlayStrength: 36,
-    sender: "Nama Anda",
+    sender: "Nama Anda & Keluarga",
     sizeId: "story",
     textX: 50,
     textY: 66,
@@ -318,14 +317,10 @@ const buildGreetingCopy = (
   settings: EditorState
 ): string => {
   const senderLine = settings.sender.trim()
-    ? `Dari, ${settings.sender.trim()}`
-    : "";
+    ? `${settings.sender.trim()}`
+    : "Nama Anda & Keluarga";
 
-  return [
-    template.headline,
-    settings.message.trim() || template.defaultMessage,
-    senderLine,
-  ]
+  return [settings.message.trim() || template.defaultMessage, senderLine]
     .filter(Boolean)
     .join("\n");
 };
@@ -960,7 +955,7 @@ export function EidGreetingApp() {
       await navigator.share({
         files: [file],
         text: buildGreetingCopy(selectedTemplate, settings),
-        title: selectedTemplate.headline,
+        title: selectedTemplate.defaultMessage,
       });
       setStatusMessage("Preview siap dibagikan.");
     } catch (error) {
@@ -1596,16 +1591,18 @@ export function EidGreetingApp() {
                 </button>
               </div>
 
-              <div className="mt-6 grid gap-3 rounded-[28px] border border-[#edf7d4] bg-white p-4 text-[#5e4b3a] text-sm leading-6">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="font-semibold text-[#2f1d19]">Headline</span>
-                  <span>{selectedTemplate.headline}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
+              <div className="mt-6 grid gap-4 rounded-[28px] border border-[#edf7d4] bg-white p-4 text-[#5e4b3a] text-sm leading-6">
+                <div className="grid gap-1">
+                  <span className="font-semibold text-[#2f1d19]">Ucapan</span>
                   <span className="font-semibold text-[#2f1d19]">
-                    Nama Anda
+                    {settings.message.trim() || selectedTemplate.defaultMessage}
                   </span>
-                  <span>{settings.sender || "Nama Anda"}</span>
+                </div>
+                <div className="grid gap-1">
+                  <span className="font-semibold text-[#2f1d19]">
+                    Nama Anda & Keluarga
+                  </span>
+                  <span>{settings.sender || "Nama Anda & Keluarga"}</span>
                 </div>
               </div>
             </div>

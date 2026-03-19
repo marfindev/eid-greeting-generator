@@ -35,7 +35,6 @@ export interface EidTemplate {
   readonly description: string;
   readonly editorImagePath: string;
   readonly galleryImagePath: string;
-  readonly headline: string;
   readonly id: string;
   readonly kicker: string;
   readonly name: string;
@@ -99,13 +98,11 @@ export const EID_TEMPLATES = [
   {
     badge: "Lentera",
     decoration: "arch",
-    defaultMessage:
-      "Semoga Idulfitri ini membawa hati yang lapang, rumah yang damai, dan langkah yang penuh keberkahan.",
+    defaultMessage: "Selamat Hari Raya Idul Fitri 1447 H",
     description:
       "Adaptasi template Canva bernuansa hijau-cokelat yang sederhana, hangat, dan dekat dengan warna brand.",
     editorImagePath: buildTemplateAssetPath("template-01.png"),
     galleryImagePath: buildTemplateAssetPath("template-01.png"),
-    headline: "Selamat Idul Fitri",
     id: "template-01",
     kicker: "Lentera Hijau",
     name: "Lentera Hijau",
@@ -130,13 +127,11 @@ export const EID_TEMPLATES = [
   {
     badge: "Masjid",
     decoration: "arch",
-    defaultMessage:
-      "Taqabbalallahu minna wa minkum. Semoga setiap doa baik yang dipanjatkan di hari ini dibalas dengan kebaikan yang berlipat.",
+    defaultMessage: "Selamat Hari Raya Idul Fitri 1447 H",
     description:
       "Adaptasi template Canva dengan siluet masjid yang elegan, lalu direcolor ke hijau lembut dan aksen emas.",
     editorImagePath: buildTemplateAssetPath("template-02.png"),
     galleryImagePath: buildTemplateAssetPath("template-02.png"),
-    headline: "Selamat Idul Fitri",
     id: "template-02",
     kicker: "Masjid Lentera",
     name: "Masjid Lentera",
@@ -161,13 +156,11 @@ export const EID_TEMPLATES = [
   {
     badge: "Tipografi",
     decoration: "mosaic",
-    defaultMessage:
-      "Mari menutup Ramadan dengan syukur dan membuka hari raya dengan pelukan hangat, silaturahmi, dan banyak kebaikan.",
+    defaultMessage: "Selamat Hari Raya Idul Fitri 1447 H",
     description:
       "Versi floral premium dari template Canva dengan permainan emas lembut dan hijau daun yang lebih editorial.",
     editorImagePath: buildTemplateAssetPath("template-03.png"),
     galleryImagePath: buildTemplateAssetPath("template-03.png"),
-    headline: "Selamat Idul Fitri",
     id: "template-03",
     kicker: "Tipografi Emerald",
     name: "Tipografi Emerald",
@@ -192,13 +185,11 @@ export const EID_TEMPLATES = [
   {
     badge: "Kaligrafi",
     decoration: "crescent",
-    defaultMessage:
-      "Semoga setiap langkah selepas Ramadan tetap dijaga dalam ketenangan, keikhlasan, dan cinta pada sesama.",
+    defaultMessage: "Selamat Hari Raya Idul Fitri 1447 H",
     description:
       "Adaptasi template Canva bertema bulan dan bintang untuk ucapan yang lebih atmosferik dan tenang.",
     editorImagePath: buildTemplateAssetPath("template-04.png"),
     galleryImagePath: buildTemplateAssetPath("template-04.png"),
-    headline: "Selamat Idul Fitri",
     id: "template-04",
     kicker: "Kaligrafi Masjid",
     name: "Kaligrafi Masjid",
