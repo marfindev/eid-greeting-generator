@@ -1,227 +1,39 @@
 "use client";
 
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import {
-  type ChangeEvent,
-  type PointerEvent,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
-import {
-  ACCENT_SWATCHES,
-  CARD_SIZE_OPTIONS,
   CARD_SIZES,
   DEFAULT_SETTINGS,
   DEFAULT_TEMPLATE_IMAGE_PATH,
   type EditorState,
   EID_TEMPLATES,
   type EidTemplate,
-  MESSAGE_PRESETS,
-  TEXT_SWATCHES,
-  type TextAlignment,
 } from "@/data/eid-templates";
 import { bodyFont, displayFont } from "@/lib/fonts";
-import { type CardTextBounds, renderGreetingCard } from "@/lib/greeting-card";
-
-type StudioTab = "gallery" | "simple" | "studio";
-
-interface DragState {
-  readonly originTextX: number;
-  readonly originTextY: number;
-  readonly pointerId: number;
-  readonly startX: number;
-  readonly startY: number;
-}
-
-interface CanvasPoint {
-  readonly x: number;
-  readonly y: number;
-}
+import { renderGreetingCard } from "@/lib/greeting-card";
 
 interface GreetingCanvasProps {
-  readonly backgroundImage: HTMLImageElement | null;
   readonly canvasRef: React.RefObject<HTMLCanvasElement | null>;
   readonly className?: string;
-  readonly interactive?: boolean;
-  readonly onBoundsChange?: (bounds: CardTextBounds) => void;
-  readonly onPointerCancel?: (event: PointerEvent<HTMLCanvasElement>) => void;
-  readonly onPointerDown?: (event: PointerEvent<HTMLCanvasElement>) => void;
-  readonly onPointerMove?: (event: PointerEvent<HTMLCanvasElement>) => void;
-  readonly onPointerUp?: (event: PointerEvent<HTMLCanvasElement>) => void;
   readonly settings: EditorState;
   readonly template: EidTemplate;
   readonly templateImage: HTMLImageElement | null;
 }
 
-interface GalleryDirection {
-  readonly alignment: TextAlignment;
-  readonly bodySize: number;
-  readonly message: string;
-  readonly overlayStrength: number;
-  readonly sender: string;
-  readonly sizeId: EditorState["sizeId"];
-  readonly textX: number;
-  readonly textY: number;
-  readonly titleSize: number;
-}
-
-interface GalleryCardProps {
-  readonly index: number;
-  readonly onUseTemplate: (templateId: string) => void;
-  readonly template: EidTemplate;
-}
-
 interface PanelProps {
   readonly children: React.ReactNode;
-  readonly description?: string;
-  readonly title?: string;
-}
-
-interface RangeFieldProps {
-  readonly label: string;
-  readonly maximum: number;
-  readonly minimum: number;
-  readonly onChange: (value: number) => void;
-  readonly step?: number;
-  readonly value: number;
-  readonly valueLabel?: string;
-}
-
-interface SwatchButtonProps {
-  readonly active: boolean;
-  readonly color: string;
-  readonly label: string;
-  readonly onClick: () => void;
 }
 
 interface ShareModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly onCopyText: () => Promise<void>;
-  readonly onShareToSocial: () => Promise<void>;
+  readonly onShareToFacebook: () => Promise<void>;
+  readonly onShareToInstagram: () => Promise<void>;
+  readonly onShareToLinkedIn: () => Promise<void>;
+  readonly onShareToTwitter: () => Promise<void>;
   readonly onShareToWhatsApp: () => Promise<void>;
-  readonly shareText: string;
 }
-
-const ALIGNMENT_OPTIONS = [
-  {
-    id: "left",
-    label: "Rata kiri",
-  },
-  {
-    id: "center",
-    label: "Rata tengah",
-  },
-  {
-    id: "right",
-    label: "Rata kanan",
-  },
-] as const satisfies readonly {
-  readonly id: TextAlignment;
-  readonly label: string;
-}[];
-
-const EMPTY_BOUNDS: CardTextBounds = {
-  height: 0,
-  width: 0,
-  x: 0,
-  y: 0,
-};
-
-const DEFAULT_GALLERY_DIRECTION: GalleryDirection = {
-  alignment: "center",
-  bodySize: 30,
-  message:
-    "Semoga Idulfitri menghadirkan rumah yang damai, hati yang lapang, dan langkah yang tetap lembut setelah Ramadan.",
-  overlayStrength: 56,
-  sender: "Nama Anda & Keluarga",
-  sizeId: "square",
-  textX: 50,
-  textY: 62,
-  titleSize: 88,
-};
-
-const GALLERY_DIRECTIONS: Record<string, GalleryDirection> = {
-  "template-01": {
-    alignment: "center",
-    bodySize: 30,
-    message: "Selamat Hari Raya Idul Fitri 1447 H",
-    overlayStrength: 64,
-    sender: "Nama Anda & Keluarga",
-    sizeId: "square",
-    textX: 50,
-    textY: 67,
-    titleSize: 90,
-  },
-  "template-02": {
-    alignment: "center",
-    bodySize: 29,
-    message:
-      "Taqabbalallahu minna wa minkum. Semoga syukur, damai, dan kebersamaan tumbuh selepas Ramadan.",
-    overlayStrength: 34,
-    sender: "Nama Anda & Keluarga",
-    sizeId: "portrait",
-    textX: 50,
-    textY: 66,
-    titleSize: 84,
-  },
-  "template-03": {
-    alignment: "center",
-    bodySize: 28,
-    message:
-      "Semoga hari raya ini menguatkan silaturahmi, melapangkan rezeki, dan menghadirkan banyak kebaikan.",
-    overlayStrength: 48,
-    sender: "Nama Anda & Keluarga",
-    sizeId: "portrait",
-    textX: 50,
-    textY: 67,
-    titleSize: 82,
-  },
-  "template-04": {
-    alignment: "center",
-    bodySize: 30,
-    message:
-      "Semoga setiap langkah selepas Ramadan tetap dijaga dalam ketenangan, keikhlasan, dan cinta pada sesama.",
-    overlayStrength: 36,
-    sender: "Nama Anda & Keluarga",
-    sizeId: "story",
-    textX: 50,
-    textY: 66,
-    titleSize: 88,
-  },
-};
-
-const GALLERY_MOCKUP_WIDTHS = {
-  portrait: "w-[74%] max-w-[255px]",
-  square: "w-[86%] max-w-[312px]",
-  story: "w-[66%] max-w-[224px]",
-} as const satisfies Record<EditorState["sizeId"], string>;
-
-const GALLERY_MOCKUP_ROTATIONS = [
-  "-rotate-[1.4deg]",
-  "rotate-[1deg]",
-  "-rotate-[0.9deg]",
-  "rotate-[1.2deg]",
-] as const;
-
-const clamp = (value: number, minimum: number, maximum: number): number => {
-  return Math.min(Math.max(value, minimum), maximum);
-};
-
-const hexToRgba = (hex: string, alpha: number): string => {
-  const normalized = hex.replace("#", "");
-  const shortHex = normalized.length === 3;
-  const segments = shortHex
-    ? normalized.split("").map((segment) => `${segment}${segment}`)
-    : (normalized.match(/.{1,2}/gu) ?? ["00", "00", "00"]);
-  const [red, green, blue] = segments.map((segment) =>
-    Number.parseInt(segment, 16)
-  );
-
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
-};
 
 const slugify = (value: string): string => {
   return value
@@ -237,59 +49,6 @@ const getTemplateById = (templateId: string): EidTemplate => {
     EID_TEMPLATES.find((template) => template.id === templateId) ??
     EID_TEMPLATES[0]
   );
-};
-
-const getGalleryDirection = (templateId: string): GalleryDirection => {
-  return GALLERY_DIRECTIONS[templateId] ?? DEFAULT_GALLERY_DIRECTION;
-};
-
-const getGalleryStageStyle = (template: EidTemplate) => {
-  return {
-    background: `radial-gradient(circle at 84% 12%, ${hexToRgba(
-      template.palette.accent,
-      0.22
-    )} 0%, ${hexToRgba(template.palette.accent, 0)} 28%), linear-gradient(180deg, ${hexToRgba(
-      "#ffffff",
-      0.98
-    )} 0%, ${hexToRgba(template.palette.accentSoft, 0.88)} 62%, #ffffff 100%)`,
-  };
-};
-
-const getGalleryCardStyle = (template: EidTemplate) => {
-  return {
-    boxShadow: `0 26px 72px ${hexToRgba(template.palette.accent, 0.14)}`,
-  };
-};
-
-const getGalleryFrameStyle = (template: EidTemplate) => {
-  return {
-    background: `linear-gradient(180deg, ${hexToRgba(
-      "#ffffff",
-      0.84
-    )} 0%, ${hexToRgba(template.palette.text, 0.08)} 100%)`,
-    borderColor: hexToRgba(template.palette.border, 0.58),
-    boxShadow: `0 26px 44px ${hexToRgba("#111111", 0.16)}`,
-  };
-};
-
-const getGalleryAccentGlowStyle = (template: EidTemplate) => {
-  return {
-    backgroundColor: hexToRgba(template.palette.accent, 0.26),
-  };
-};
-
-const getGalleryMetaToneStyle = (template: EidTemplate) => {
-  return {
-    color: hexToRgba(template.palette.backdropEnd, 0.62),
-  };
-};
-
-const getGalleryBadgeStyle = (template: EidTemplate) => {
-  return {
-    backgroundColor: hexToRgba(template.palette.accentSoft, 0.9),
-    borderColor: hexToRgba(template.palette.border, 0.42),
-    color: template.palette.backdropEnd,
-  };
 };
 
 const buildFilename = (template: EidTemplate, senderName: string): string => {
@@ -308,16 +67,28 @@ const downloadCanvas = (
   link.click();
 };
 
-const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) {
-        resolve(blob);
-        return;
-      }
+const createShareFileFromCanvas = (
+  canvas: HTMLCanvasElement,
+  template: EidTemplate,
+  senderName: string
+): File | null => {
+  const dataUrl = canvas.toDataURL("image/png");
+  const [header, body] = dataUrl.split(",");
 
-      reject(new Error("Gagal membuat berkas gambar."));
-    }, "image/png");
+  if (!(header && body)) {
+    return null;
+  }
+
+  const mimeType = header.match(DATA_URL_MIME_PATTERN)?.[1] ?? "image/png";
+  const binaryString = window.atob(body);
+  const bytes = new Uint8Array(binaryString.length);
+
+  for (const [index, character] of Array.from(binaryString).entries()) {
+    bytes[index] = character.charCodeAt(0);
+  }
+
+  return new File([bytes], buildFilename(template, senderName), {
+    type: mimeType,
   });
 };
 
@@ -334,134 +105,106 @@ const copyTextToClipboard = async (value: string): Promise<boolean> => {
   }
 };
 
-interface ShareData {
-  readonly text: string;
-}
+type SharePlatform =
+  | "facebook"
+  | "instagram"
+  | "linkedin"
+  | "twitter"
+  | "whatsapp";
+const FIXED_SIZE_ID = "portrait" satisfies EditorState["sizeId"];
+const DATA_URL_MIME_PATTERN = /data:(.*?);base64/u;
+const SHARE_PLATFORM_LABELS = {
+  facebook: "Facebook",
+  instagram: "Instagram",
+  linkedin: "LinkedIn",
+  twitter: "Twitter",
+  whatsapp: "WhatsApp",
+} as const satisfies Record<SharePlatform, string>;
 
-interface SharePayload {
-  readonly files?: File[];
-}
+type NativeShareResult = "cancelled" | "failed" | "shared" | "unsupported";
 
-interface ShareResult {
-  readonly message: string | null;
-  readonly status: "cancelled" | "failed" | "shared-file";
-}
-
-type ShareTarget = "social" | "whatsapp";
-
-const canSharePayload = (payload: SharePayload): boolean => {
-  return navigator.canShare ? navigator.canShare(payload) : true;
+const isValidSharedTemplateId = (value: string): value is EidTemplate["id"] => {
+  return EID_TEMPLATES.some((template) => template.id === value);
 };
 
-const openWhatsAppShareWindow = (text: string): boolean => {
-  const shareUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
-  const popup = window.open(shareUrl, "_blank", "noopener,noreferrer");
+const buildShareLink = (
+  settings: Pick<EditorState, "sender" | "templateId">
+): string => {
+  if (typeof window === "undefined") {
+    return "";
+  }
 
+  const shareUrl = new URL(window.location.href);
+  shareUrl.searchParams.set("template", settings.templateId);
+
+  const senderName = settings.sender.trim();
+
+  if (senderName) {
+    shareUrl.searchParams.set("sender", senderName);
+  } else {
+    shareUrl.searchParams.delete("sender");
+  }
+
+  return shareUrl.toString();
+};
+
+const buildSocialShareUrl = (
+  platform: Exclude<SharePlatform, "instagram">,
+  shareLink: string,
+  message: string
+): string => {
+  const encodedLink = encodeURIComponent(shareLink);
+  const encodedMessage = encodeURIComponent(message);
+
+  switch (platform) {
+    case "facebook":
+      return `https://www.facebook.com/sharer/sharer.php?u=${encodedLink}`;
+    case "linkedin":
+      return `https://www.linkedin.com/sharing/share-offsite/?url=${encodedLink}`;
+    case "twitter":
+      return `https://twitter.com/intent/tweet?url=${encodedLink}&text=${encodedMessage}`;
+    case "whatsapp":
+      return `https://wa.me/?text=${encodeURIComponent(`${message}\n\n${shareLink}`)}`;
+    default:
+      return shareLink;
+  }
+};
+
+const openExternalShareLink = (url: string): boolean => {
+  const popup = window.open(url, "_blank", "noopener,noreferrer");
   return popup !== null;
 };
 
-const buildWhatsAppFallbackMessage = (
-  didOpenWhatsApp: boolean,
-  didCopyText: boolean,
-  needsManualImageUpload = false
-): string => {
-  if (didOpenWhatsApp) {
-    if (needsManualImageUpload) {
-      return "WhatsApp dibuka. Gambar perlu dilampirkan manual jika browser tidak mendukung share file langsung.";
-    }
-
-    return didCopyText
-      ? "WhatsApp dibuka. Ucapan sudah disalin ke clipboard."
-      : "WhatsApp dibuka.";
+const shareFilesWithCaption = async (
+  file: File,
+  text: string
+): Promise<NativeShareResult> => {
+  if (
+    typeof navigator === "undefined" ||
+    typeof navigator.share !== "function"
+  ) {
+    return "unsupported";
   }
 
-  return didCopyText
-    ? "WhatsApp tidak bisa dibuka. Ucapan disalin ke clipboard."
-    : "WhatsApp tidak tersedia di browser ini.";
-};
+  if (
+    typeof navigator.canShare === "function" &&
+    !navigator.canShare({ files: [file] })
+  ) {
+    return "unsupported";
+  }
 
-const getShareTargetMessage = (target: ShareTarget): string => {
-  return target === "whatsapp"
-    ? "Dialog share gambar sudah dibuka. Pilih WhatsApp untuk melanjutkan pengiriman."
-    : "Dialog share gambar sudah dibuka. Pilih media sosial tujuan.";
-};
-
-const runNativeShare = async (
-  payload: SharePayload
-): Promise<ShareResult["status"]> => {
   try {
-    await navigator.share(payload);
-    return "shared-file";
+    await navigator.share({
+      files: [file],
+      text,
+    });
+    return "shared";
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
+    if (error instanceof DOMException && error.name === "AbortError") {
       return "cancelled";
     }
 
     return "failed";
-  }
-};
-
-const shareCanvasImage = async (
-  canvas: HTMLCanvasElement,
-  filename: string,
-  shareData: ShareData
-): Promise<ShareResult> => {
-  if (!navigator.share) {
-    const didCopyText = await copyTextToClipboard(shareData.text);
-
-    return {
-      message: didCopyText
-        ? "Share gambar langsung hanya tersedia di browser mobile yang mendukung native share. Ucapan sudah disalin ke clipboard."
-        : "Share gambar langsung hanya tersedia di browser mobile yang mendukung native share.",
-      status: "failed",
-    };
-  }
-
-  try {
-    const blob = await canvasToBlob(canvas);
-    const file = new File([blob], filename, {
-      type: "image/png",
-    });
-    const fileShareData = {
-      files: [file],
-    } satisfies SharePayload;
-
-    if (!canSharePayload(fileShareData)) {
-      return {
-        message:
-          "Browser ini tidak mendukung share gambar langsung. Gunakan Download lalu bagikan manual.",
-        status: "failed",
-      };
-    }
-
-    const didCopyText = await copyTextToClipboard(shareData.text);
-    const shareStatus = await runNativeShare(fileShareData);
-
-    if (shareStatus === "shared-file") {
-      return {
-        message: didCopyText
-          ? "Gambar dibagikan. Teks ucapan disalin ke clipboard untuk ditempel di WhatsApp atau media sosial."
-          : "Gambar dibagikan. Tambahkan ucapan manual di aplikasi tujuan.",
-        status: "shared-file",
-      };
-    }
-
-    if (shareStatus === "cancelled") {
-      return {
-        message: null,
-        status: "cancelled",
-      };
-    }
-
-    return {
-      message: "File tidak bisa dibagikan. Coba unduh manual.",
-      status: "failed",
-    };
-  } catch {
-    return {
-      message: "Gagal menyiapkan file gambar untuk dibagikan.",
-      status: "failed",
-    };
   }
 };
 
@@ -476,32 +219,6 @@ const buildGreetingCopy = (
   return [settings.message.trim() || template.defaultMessage, senderLine]
     .filter(Boolean)
     .join("\n\n");
-};
-
-const getCanvasPoint = (
-  canvas: HTMLCanvasElement,
-  event: PointerEvent<HTMLCanvasElement>
-): CanvasPoint => {
-  const bounds = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / bounds.width;
-  const scaleY = canvas.height / bounds.height;
-
-  return {
-    x: (event.clientX - bounds.left) * scaleX,
-    y: (event.clientY - bounds.top) * scaleY,
-  };
-};
-
-const isPointInsideBounds = (
-  point: CanvasPoint,
-  bounds: CardTextBounds
-): boolean => {
-  return (
-    point.x >= bounds.x &&
-    point.x <= bounds.x + bounds.width &&
-    point.y >= bounds.y &&
-    point.y <= bounds.y + bounds.height
-  );
 };
 
 const applyTemplateSettings = (
@@ -521,26 +238,6 @@ const applyTemplateSettings = (
       : current.message,
     templateId: nextTemplate.id,
     textColor: nextTemplate.palette.text,
-  };
-};
-
-const createGallerySettings = (template: EidTemplate): EditorState => {
-  const direction = getGalleryDirection(template.id);
-
-  return {
-    ...DEFAULT_SETTINGS,
-    alignment: direction.alignment,
-    accentColor: template.palette.accent,
-    bodySize: direction.bodySize,
-    message: direction.message,
-    overlayStrength: direction.overlayStrength,
-    sender: direction.sender,
-    sizeId: direction.sizeId,
-    templateId: template.id,
-    textColor: template.palette.text,
-    textX: direction.textX,
-    textY: direction.textY,
-    titleSize: direction.titleSize,
   };
 };
 
@@ -587,94 +284,17 @@ const useTemplateImageWithFallback = (
   return image ?? fallbackImage;
 };
 
-function ControlPanel({ children, description, title }: PanelProps) {
+function ControlPanel({ children }: PanelProps) {
   return (
     <section className="rounded-[30px] border border-[#dff1b7] bg-white p-5 shadow-[0_24px_60px_rgba(69,154,0,0.08)]">
-      {title || description ? (
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            {title ? (
-              <h2
-                className={`${displayFont.className} text-2xl text-[#2f1d19]`}
-              >
-                {title}
-              </h2>
-            ) : null}
-            {description ? (
-              <p className="mt-1 max-w-xl text-[#6b5a46] text-sm leading-6">
-                {description}
-              </p>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
       {children}
     </section>
   );
 }
 
-function RangeField({
-  label,
-  maximum,
-  minimum,
-  onChange,
-  step = 1,
-  value,
-  valueLabel,
-}: RangeFieldProps) {
-  return (
-    <label className="flex flex-col gap-2">
-      <span className="flex items-center justify-between gap-4 font-medium text-[#5e4b3a] text-sm">
-        <span>{label}</span>
-        <span className="rounded-full bg-[#fff8cf] px-3 py-1 text-[#5e4b3a] text-xs">
-          {valueLabel ?? value}
-        </span>
-      </span>
-      <input
-        className="range-accent h-2 w-full cursor-pointer appearance-none rounded-full bg-[#e7f5c8]"
-        max={maximum}
-        min={minimum}
-        onChange={(event) => onChange(Number(event.target.value))}
-        step={step}
-        type="range"
-        value={value}
-      />
-    </label>
-  );
-}
-
-function SwatchButton({ active, color, label, onClick }: SwatchButtonProps) {
-  return (
-    <button
-      aria-label={label}
-      aria-pressed={active}
-      className={`flex h-10 w-10 items-center justify-center rounded-full border transition ${
-        active
-          ? "scale-105 border-[#459a00] shadow-[0_10px_22px_rgba(69,154,0,0.22)]"
-          : "border-[#edf7d4] shadow-[0_6px_14px_rgba(69,154,0,0.08)]"
-      }`}
-      onClick={onClick}
-      style={{ backgroundColor: color }}
-      type="button"
-    >
-      <span className="sr-only">{label}</span>
-      {active ? (
-        <span className="h-3 w-3 rounded-full border border-black/20 bg-white/80" />
-      ) : null}
-    </button>
-  );
-}
-
 function GreetingCanvas({
-  backgroundImage,
   canvasRef,
   className,
-  interactive = false,
-  onBoundsChange,
-  onPointerCancel,
-  onPointerDown,
-  onPointerMove,
-  onPointerUp,
   settings,
   templateImage,
   template,
@@ -689,8 +309,8 @@ function GreetingCanvas({
     }
 
     const draw = (): void => {
-      const bounds = renderGreetingCard({
-        backgroundImage,
+      renderGreetingCard({
+        backgroundImage: null,
         canvas,
         fonts: {
           body: bodyFont.style.fontFamily,
@@ -700,8 +320,6 @@ function GreetingCanvas({
         templateImage,
         template,
       });
-
-      onBoundsChange?.(bounds);
     };
 
     draw();
@@ -721,173 +339,86 @@ function GreetingCanvas({
     return () => {
       cancelled = true;
     };
-  }, [
-    backgroundImage,
-    canvasRef,
-    onBoundsChange,
-    settings,
-    template,
-    templateImage,
-  ]);
+  }, [canvasRef, settings, template, templateImage]);
 
   return (
     <canvas
       aria-label="Preview kartu ucapan"
-      className={`${className ?? ""} w-full rounded-[30px] ${
-        interactive ? "cursor-grab touch-none active:cursor-grabbing" : ""
-      }`}
-      onPointerCancel={onPointerCancel}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      className={`${className ?? ""} w-full rounded-[30px]`}
       ref={canvasRef}
       style={{ aspectRatio: `${size.width} / ${size.height}` }}
     />
   );
 }
 
-function GalleryCard({ index, onUseTemplate, template }: GalleryCardProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const settings = createGallerySettings(template);
-  const editorImage = useTemplateImageWithFallback(template.editorImagePath);
-  const galleryImage = useAssetImage(template.galleryImagePath);
-  const previewTemplateImage = galleryImage ?? editorImage;
-  const rotationClass =
-    GALLERY_MOCKUP_ROTATIONS[index % GALLERY_MOCKUP_ROTATIONS.length] ??
-    GALLERY_MOCKUP_ROTATIONS[0];
-  const mockupWidthClass = GALLERY_MOCKUP_WIDTHS[settings.sizeId];
-
+function ShareFacebookIcon() {
   return (
-    <article
-      className="relative overflow-hidden rounded-[32px] border border-[#dff1b7] bg-white p-5"
-      style={getGalleryCardStyle(template)}
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="34"
+      viewBox="0 0 34 34"
+      width="34"
     >
-      <div
-        className="pointer-events-none absolute inset-x-5 top-0 h-px"
-        style={{
-          background: `linear-gradient(90deg, transparent, ${hexToRgba(
-            template.palette.border,
-            0.72
-          )}, transparent)`,
-        }}
+      <circle cx="17" cy="17" fill="#5a9708" r="17" />
+      <path
+        d="M18.76 28v-9.16h3.08l.46-3.57h-3.54v-2.28c0-1.03.29-1.73 1.76-1.73h1.88V8.07c-.33-.04-1.44-.14-2.74-.14-2.72 0-4.58 1.66-4.58 4.71v2.63H12v3.57h3.08V28h3.68Z"
+        fill="#fff"
       />
+    </svg>
+  );
+}
 
-      <div
-        className="relative overflow-hidden rounded-[30px] border border-[#dceab3] p-5"
-        style={getGalleryStageStyle(template)}
-      >
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(140deg, rgba(255,255,255,0.48) 0%, rgba(255,255,255,0) 38%)",
-          }}
-        />
-        <div className="relative flex items-center justify-between gap-3">
-          <span
-            className="rounded-full border px-3 py-1 font-semibold text-[11px] uppercase tracking-[0.22em]"
-            style={getGalleryBadgeStyle(template)}
-          >
-            {template.badge}
-          </span>
-          <span
-            className="font-semibold text-[11px] uppercase tracking-[0.24em]"
-            style={getGalleryMetaToneStyle(template)}
-          >
-            Curated Layout
-          </span>
-        </div>
+function ShareTwitterIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="34"
+      viewBox="0 0 34 34"
+      width="34"
+    >
+      <path
+        d="M29.18 10.33c-.88.39-1.82.65-2.8.77a4.88 4.88 0 0 0 2.14-2.7 9.81 9.81 0 0 1-3.1 1.19 4.9 4.9 0 0 0-8.34 4.46 13.9 13.9 0 0 1-10.1-5.12 4.9 4.9 0 0 0 1.52 6.54 4.86 4.86 0 0 1-2.22-.61v.06a4.9 4.9 0 0 0 3.93 4.8 4.94 4.94 0 0 1-2.2.08 4.9 4.9 0 0 0 4.57 3.4A9.84 9.84 0 0 1 6.5 25.2 13.88 13.88 0 0 0 14 27.4c9 0 13.92-7.45 13.92-13.92 0-.21 0-.42-.01-.63a9.94 9.94 0 0 0 2.27-2.52Z"
+        fill="#5a9708"
+      />
+    </svg>
+  );
+}
 
-        <div
-          className={`relative mx-auto mt-7 mb-9 transform-gpu ${mockupWidthClass} ${rotationClass}`}
-        >
-          <div
-            className="absolute inset-x-[12%] -bottom-7 h-12 rounded-full blur-2xl"
-            style={getGalleryAccentGlowStyle(template)}
-          />
-          <div
-            className="absolute inset-0 translate-x-4 translate-y-5 rounded-[32px]"
-            style={{
-              background: `linear-gradient(180deg, ${hexToRgba(
-                template.palette.text,
-                0.16
-              )} 0%, ${hexToRgba(template.palette.text, 0.04)} 100%)`,
-            }}
-          />
-          <div
-            className="relative overflow-hidden rounded-[34px] border p-3 backdrop-blur-[2px]"
-            style={getGalleryFrameStyle(template)}
-          >
-            <GreetingCanvas
-              backgroundImage={null}
-              canvasRef={canvasRef}
-              className="border border-white/60 bg-white shadow-[0_18px_36px_rgba(15,23,42,0.16)]"
-              settings={settings}
-              template={template}
-              templateImage={previewTemplateImage}
-            />
-          </div>
-        </div>
-
-        <div className="relative flex items-end justify-between gap-4">
-          <div>
-            <p
-              className="font-semibold text-[11px] uppercase tracking-[0.26em]"
-              style={getGalleryMetaToneStyle(template)}
-            >
-              Signature Composition
-            </p>
-            <p className="mt-2 max-w-[15rem] text-[#6b5a46] text-sm leading-6">
-              Siap dipakai langsung atau dibuka ke Studio untuk penyesuaian
-              detail.
-            </p>
-          </div>
-          <span className="rounded-full bg-[#fff8cf] px-3 py-1 font-medium text-[#5e4b3a] text-xs">
-            {CARD_SIZES[settings.sizeId].label}
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-5 flex flex-col gap-3">
-        <div>
-          <p className="font-semibold text-[#7a6a57] text-xs uppercase tracking-[0.3em]">
-            {template.badge}
-          </p>
-          <h3
-            className={`${displayFont.className} mt-2 text-2xl text-[#2f1d19]`}
-          >
-            {template.name}
-          </h3>
-        </div>
-        <p className="text-[#6b5a46] text-sm leading-6">
-          {template.description}
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <button
-            className="rounded-full bg-[#459a00] px-4 py-2 font-semibold text-sm text-white transition hover:bg-[#3d8700]"
-            onClick={() => {
-              const canvas = canvasRef.current;
-
-              if (!canvas) {
-                return;
-              }
-
-              downloadCanvas(canvas, template, settings.sender);
-            }}
-            type="button"
-          >
-            Download
-          </button>
-          <button
-            className="rounded-full border border-[#bfd684] bg-white px-4 py-2 font-semibold text-[#5e4b3a] text-sm transition hover:border-[#59cd00]"
-            onClick={() => onUseTemplate(template.id)}
-            type="button"
-          >
-            Pakai template
-          </button>
-        </div>
-      </div>
-    </article>
+function ShareInstagramIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="34"
+      viewBox="0 0 34 34"
+      width="34"
+    >
+      <defs>
+        <linearGradient id="instagramGradient" x1="6" x2="28" y1="28" y2="6">
+          <stop offset="0" stopColor="#79b61f" />
+          <stop offset="1" stopColor="#4f8309" />
+        </linearGradient>
+      </defs>
+      <rect
+        height="22"
+        rx="6"
+        stroke="url(#instagramGradient)"
+        strokeWidth="3"
+        width="22"
+        x="6"
+        y="6"
+      />
+      <circle
+        cx="17"
+        cy="17"
+        r="5"
+        stroke="url(#instagramGradient)"
+        strokeWidth="3"
+      />
+      <circle cx="24" cy="10" fill="#5a9708" r="1.8" />
+    </svg>
   );
 }
 
@@ -896,68 +427,35 @@ function ShareWhatsAppIcon() {
     <svg
       aria-hidden="true"
       fill="none"
-      height="30"
-      viewBox="0 0 24 24"
-      width="30"
+      height="34"
+      viewBox="0 0 34 34"
+      width="34"
     >
       <path
-        d="M12 2.5c-5.19 0-9.4 4.08-9.4 9.11 0 1.61.44 3.19 1.27 4.58L2.7 21.5l5.54-1.1A9.55 9.55 0 0 0 12 21.17c5.19 0 9.4-4.08 9.4-9.11S17.19 2.5 12 2.5Z"
-        fill="#25d366"
+        d="M17 3.6c-7.31 0-13.24 5.77-13.24 12.9 0 2.28.62 4.5 1.8 6.48L4 30.5l7.8-1.55A13.43 13.43 0 0 0 17 29.4c7.31 0 13.24-5.77 13.24-12.9S24.31 3.6 17 3.6Z"
+        fill="#5a9708"
       />
       <path
-        d="M9.24 7.7c.19-.42.38-.44.58-.45h.5c.17 0 .42.07.64.57.23.5.79 1.92.85 2.06.06.14.1.29.02.48-.08.18-.14.29-.28.46-.14.16-.29.35-.41.47-.14.14-.29.28-.13.56.16.28.71 1.16 1.52 1.88 1.04.93 1.92 1.21 2.2 1.34.27.13.43.11.6-.07.16-.19.69-.8.87-1.08.18-.28.37-.23.62-.14.25.09 1.59.74 1.86.88.27.14.45.2.51.32.06.12.06.69-.16 1.35-.22.66-1.3 1.26-1.81 1.34-.46.08-1.04.1-1.68-.11-.39-.13-.87-.28-1.49-.55-2.62-1.13-4.33-3.88-4.46-4.06-.13-.18-1.07-1.43-1.07-2.73 0-1.31.68-1.95.93-2.22Z"
+        d="M13.42 11.02c.26-.57.53-.59.82-.6h.71c.24 0 .58.1.9.77.32.68 1.11 2.62 1.2 2.8.1.19.14.4.03.64-.11.24-.2.4-.39.62-.2.22-.4.47-.57.68-.2.18-.4.4-.17.76.22.37 1.02 1.58 2.2 2.56 1.5 1.24 2.76 1.64 3.16 1.8.39.16.62.13.84-.1.23-.24 1-1.12 1.27-1.5.27-.39.54-.33.92-.2.38.13 2.28 1.06 2.68 1.25.39.19.65.29.74.45.1.16.1.94-.23 1.88-.31.93-1.86 1.77-2.58 1.89-.66.11-1.47.13-2.4-.14-.55-.17-1.25-.38-2.12-.77-3.72-1.6-6.15-5.48-6.34-5.74-.19-.26-1.52-2.02-1.52-3.89s.98-2.8 1.34-3.18Z"
         fill="#fff"
       />
     </svg>
   );
 }
 
-function ShareSocialIcon() {
+function ShareLinkedInIcon() {
   return (
     <svg
       aria-hidden="true"
       fill="none"
-      height="30"
-      viewBox="0 0 24 24"
-      width="30"
+      height="34"
+      viewBox="0 0 34 34"
+      width="34"
     >
+      <rect fill="#5a9708" height="34" rx="5" width="34" />
       <path
-        d="M16.5 7a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM6 14.5A2.5 2.5 0 1 0 6 9.5a2.5 2.5 0 0 0 0 5ZM16.5 22a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"
-        fill="#4d9300"
-      />
-      <path
-        d="m8.24 11.17 5.98-3.34M8.24 12.83l5.98 3.34"
-        stroke="#4d9300"
-        strokeLinecap="round"
-        strokeWidth="2.2"
-      />
-    </svg>
-  );
-}
-
-function ShareCopyIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="26"
-      viewBox="0 0 24 24"
-      width="26"
-    >
-      <rect
-        height="12"
-        rx="2.5"
-        stroke="#4d9300"
-        strokeWidth="2"
-        width="12"
-        x="8"
-        y="8"
-      />
-      <path
-        d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"
-        stroke="#4d9300"
-        strokeLinecap="round"
-        strokeWidth="2"
+        d="M10.18 13.2H6.95v13.42h3.23V13.2ZM8.57 11.37a1.87 1.87 0 1 0 0-3.74 1.87 1.87 0 0 0 0 3.74ZM27.08 18.38c0-4.05-2.16-5.94-5.04-5.94-2.32 0-3.36 1.28-3.94 2.18V13.2h-3.22c.04.94 0 13.42 0 13.42h3.22v-7.5c0-.4.03-.8.15-1.09.32-.8 1.05-1.62 2.28-1.62 1.61 0 2.26 1.22 2.26 3.01v7.2H26v-7.57Z"
+        fill="#fff"
       />
     </svg>
   );
@@ -982,32 +480,23 @@ function ShareCloseIcon() {
   );
 }
 
-function ShareActionButton({
+function SharePlatformButton({
   children,
-  description,
+  label,
   onClick,
-  title,
 }: {
   readonly children: React.ReactNode;
-  readonly description: string;
-  readonly onClick: () => Promise<void>;
-  readonly title: string;
+  readonly label: string;
+  readonly onClick: () => void | Promise<void>;
 }) {
   return (
     <button
-      className="group rounded-[24px] border border-[#dfeab3] bg-white px-4 py-4 text-left shadow-[0_12px_30px_rgba(69,154,0,0.08)] transition hover:-translate-y-0.5 hover:border-[#59cd00] hover:shadow-[0_18px_38px_rgba(69,154,0,0.12)]"
+      aria-label={label}
+      className="flex h-[4rem] w-[4rem] items-center justify-center rounded-[16px] border border-[#d8e8b4] bg-white shadow-[0_10px_22px_rgba(87,135,18,0.12)] transition hover:-translate-y-0.5 hover:border-[#8ab74b] hover:shadow-[0_14px_28px_rgba(87,135,18,0.18)] sm:h-[4.4rem] sm:w-[4.4rem]"
       onClick={onClick}
       type="button"
     >
-      <span className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-[#dfeab3] bg-white transition group-hover:bg-[#f6ffe6]">
-        {children}
-      </span>
-      <span className="mt-4 block font-semibold text-[#2f5a1f] text-sm">
-        {title}
-      </span>
-      <span className="mt-1 block text-[#5e8a31] text-xs leading-5">
-        {description}
-      </span>
+      {children}
     </button>
   );
 }
@@ -1015,10 +504,11 @@ function ShareActionButton({
 function ShareModal({
   isOpen,
   onClose,
-  onCopyText,
-  onShareToSocial,
+  onShareToFacebook,
+  onShareToInstagram,
+  onShareToLinkedIn,
+  onShareToTwitter,
   onShareToWhatsApp,
-  shareText,
 }: ShareModalProps) {
   if (!isOpen) {
     return null;
@@ -1028,84 +518,57 @@ function ShareModal({
     <div
       aria-labelledby="share-modal-title"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
     >
       <button
         aria-label="Tutup modal share"
-        className="absolute inset-0 bg-[rgba(27,41,11,0.45)] backdrop-blur-[4px]"
+        className="absolute inset-0 bg-[linear-gradient(135deg,rgba(96,150,8,0.2)_0%,rgba(37,64,5,0.28)_100%)] backdrop-blur-[5px]"
         onClick={onClose}
         type="button"
       />
-      <div className="relative w-full max-w-[38rem] overflow-hidden rounded-[36px] border border-[#dfeab3] bg-white shadow-[0_32px_90px_rgba(26,64,15,0.22)]">
-        <div className="bg-[linear-gradient(135deg,#3f8500_0%,#4d9300_48%,#67ae11_100%)] px-6 py-6 text-white sm:px-8">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="font-semibold text-white/78 text-xs uppercase tracking-[0.28em]">
-                Social Share
-              </p>
-              <h3
-                className={`${displayFont.className} mt-3 text-3xl leading-none sm:text-[2.6rem]`}
-                id="share-modal-title"
-              >
-                Bagikan Kartu
-              </h3>
-              <p className="mt-3 max-w-xl text-sm text-white/88 leading-6 sm:text-base">
-                Pilih tujuan share yang Anda inginkan, lalu kirim kartu ucapan
-                dengan nuansa warna yang selaras dengan identitas Al-Uswah.
-              </p>
-            </div>
-            <button
-              aria-label="Tutup"
-              className="rounded-full border border-white/35 bg-white/10 p-2 text-white transition hover:bg-white/16"
-              onClick={onClose}
-              type="button"
-            >
-              <ShareCloseIcon />
-            </button>
-          </div>
+      <div className="relative w-full max-w-[27rem] rounded-[28px] border border-[#dceabf] bg-white px-5 py-6 shadow-[0_24px_60px_rgba(87,135,18,0.18)] sm:max-w-[32rem] sm:px-7 sm:py-7">
+        <button
+          aria-label="Tutup"
+          className="absolute top-4 right-4 rounded-full border border-[#dceabf] p-2 text-[#5a9708] transition hover:bg-[#f7fce9]"
+          onClick={onClose}
+          type="button"
+        >
+          <ShareCloseIcon />
+        </button>
+
+        <div className="max-w-[15rem]">
+          <h3
+            className="font-semibold text-[#5a9708] text-[1.7rem] leading-none sm:text-[2.2rem]"
+            id="share-modal-title"
+          >
+            Social Share
+          </h3>
         </div>
 
-        <div className="grid gap-6 px-6 py-6 sm:px-8 sm:py-8">
-          <div>
-            <p className="font-semibold text-[#31452b] text-lg">Bagikan via</p>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <ShareActionButton
-                description="Buka WhatsApp untuk kirim kartu ucapan dan siapkan teks pendamping."
-                onClick={onShareToWhatsApp}
-                title="WhatsApp"
-              >
-                <ShareWhatsAppIcon />
-              </ShareActionButton>
-              <ShareActionButton
-                description="Buka dialog share untuk Instagram, Facebook, Telegram, dan aplikasi sosial lain."
-                onClick={onShareToSocial}
-                title="Media Sosial"
-              >
-                <ShareSocialIcon />
-              </ShareActionButton>
-            </div>
-          </div>
-
-          <div>
-            <p className="font-semibold text-[#31452b] text-lg">Salin Ucapan</p>
-            <div className="mt-4 rounded-[26px] border border-[#dfeab3] bg-white p-4 shadow-inner">
-              <div className="flex items-start gap-4">
-                <span className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] bg-white shadow-[0_10px_24px_rgba(69,154,0,0.08)]">
-                  <ShareCopyIcon />
-                </span>
-                <p className="whitespace-pre-line text-[#2f5a1f] text-sm leading-6 sm:text-base">
-                  {shareText}
-                </p>
-              </div>
-            </div>
-            <button
-              className="mt-4 w-full rounded-[22px] bg-[linear-gradient(135deg,#3f8500_0%,#4d9300_52%,#67ae11_100%)] px-5 py-4 font-semibold text-base text-white shadow-[0_18px_40px_rgba(77,147,0,0.22)] transition hover:brightness-[1.03]"
-              onClick={onCopyText}
-              type="button"
-            >
-              Salin Ucapan
-            </button>
+        <div className="mt-7">
+          <p className="font-semibold text-[#35531d] text-[1.6rem] leading-none sm:text-[1.9rem]">
+            Bagikan melalui
+          </p>
+          <p className="mt-3 text-[#5d6f49] text-[0.98rem] leading-7 sm:text-[1.05rem]">
+            Pilih platform yang ingin Anda gunakan untuk membagikan kartu.
+          </p>
+          <div className="mt-5 grid grid-cols-3 gap-3 sm:grid-cols-5 sm:gap-4">
+            <SharePlatformButton label="Facebook" onClick={onShareToFacebook}>
+              <ShareFacebookIcon />
+            </SharePlatformButton>
+            <SharePlatformButton label="Twitter" onClick={onShareToTwitter}>
+              <ShareTwitterIcon />
+            </SharePlatformButton>
+            <SharePlatformButton label="Instagram" onClick={onShareToInstagram}>
+              <ShareInstagramIcon />
+            </SharePlatformButton>
+            <SharePlatformButton label="WhatsApp" onClick={onShareToWhatsApp}>
+              <ShareWhatsAppIcon />
+            </SharePlatformButton>
+            <SharePlatformButton label="LinkedIn" onClick={onShareToLinkedIn}>
+              <ShareLinkedInIcon />
+            </SharePlatformButton>
           </div>
         </div>
       </div>
@@ -1114,25 +577,18 @@ function ShareModal({
 }
 
 export function EidGreetingApp() {
-  const [activeTab, setActiveTab] = useState<StudioTab>("simple");
-  const [backgroundImage, setBackgroundImage] =
-    useState<HTMLImageElement | null>(null);
-  const [isDraggingText, setIsDraggingText] = useState(false);
   const [isShareOptionsOpen, setIsShareOptionsOpen] = useState(false);
   const [settings, setSettings] = useState<EditorState>({
     ...DEFAULT_SETTINGS,
   });
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const dragStateRef = useRef<DragState | null>(null);
-  const fileInputId = useId();
-  const objectUrlRef = useRef<string | null>(null);
-  const textBoundsRef = useRef<CardTextBounds>(EMPTY_BOUNDS);
   const selectedTemplate = getTemplateById(settings.templateId);
   const selectedTemplateImage = useTemplateImageWithFallback(
     selectedTemplate.editorImagePath
   );
   const shareText = buildGreetingCopy(selectedTemplate, settings);
+  const shareLink = buildShareLink(settings);
 
   useEffect(() => {
     const message = statusMessage;
@@ -1173,42 +629,40 @@ export function EidGreetingApp() {
   }, [isShareOptionsOpen]);
 
   useEffect(() => {
-    const source = settings.backgroundSource;
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedTemplateId = urlParams.get("template");
+    const sharedSender = urlParams.get("sender");
 
-    if (!source) {
-      setBackgroundImage(null);
+    if (!(sharedTemplateId || sharedSender)) {
       return;
     }
 
-    let active = true;
-    const image = new window.Image();
-    image.decoding = "async";
-    image.src = source;
+    setSettings((current) => {
+      let nextSettings: EditorState = {
+        ...current,
+        sizeId: FIXED_SIZE_ID,
+      };
 
-    image.onload = () => {
-      if (active) {
-        setBackgroundImage(image);
+      if (
+        sharedTemplateId &&
+        isValidSharedTemplateId(sharedTemplateId) &&
+        current.templateId !== sharedTemplateId
+      ) {
+        nextSettings = applyTemplateSettings(
+          nextSettings,
+          getTemplateById(sharedTemplateId)
+        );
       }
-    };
 
-    image.onerror = () => {
-      if (active) {
-        setBackgroundImage(null);
-        setStatusMessage("Background tidak bisa dimuat. Coba file lain.");
+      if (sharedSender) {
+        nextSettings = {
+          ...nextSettings,
+          sender: sharedSender,
+        };
       }
-    };
 
-    return () => {
-      active = false;
-    };
-  }, [settings.backgroundSource]);
-
-  useEffect(() => {
-    return () => {
-      if (objectUrlRef.current) {
-        URL.revokeObjectURL(objectUrlRef.current);
-      }
-    };
+      return nextSettings;
+    });
   }, []);
 
   const updateSettings = (patch: Partial<EditorState>): void => {
@@ -1231,8 +685,8 @@ export function EidGreetingApp() {
       return null;
     }
 
-    textBoundsRef.current = renderGreetingCard({
-      backgroundImage,
+    renderGreetingCard({
+      backgroundImage: null,
       canvas,
       fonts: {
         body: bodyFont.style.fontFamily,
@@ -1246,49 +700,12 @@ export function EidGreetingApp() {
     return canvas;
   };
 
-  const clearUploadedBackground = (): void => {
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = null;
-    }
-
-    setBackgroundImage(null);
-    updateSettings({ backgroundSource: null });
-  };
-
-  const resetStudio = (): void => {
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = null;
-    }
-
-    setBackgroundImage(null);
-    setSettings({ ...DEFAULT_SETTINGS });
-    setStatusMessage("Preset dikembalikan ke setelan awal.");
-  };
-
-  const handleBackgroundUpload = (
-    event: ChangeEvent<HTMLInputElement>
-  ): void => {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
-    }
-
-    const nextUrl = URL.createObjectURL(file);
-    objectUrlRef.current = nextUrl;
-
-    updateSettings({ backgroundSource: nextUrl });
-    setActiveTab("studio");
-    setStatusMessage(
-      "Background baru dipasang. Atur overlay bila teks kurang kontras."
-    );
-    event.target.value = "";
+  const resetSettings = (): void => {
+    setSettings({
+      ...DEFAULT_SETTINGS,
+      sizeId: FIXED_SIZE_ID,
+    });
+    setStatusMessage("Pengaturan dikembalikan ke setelan awal.");
   };
 
   const handleDownload = (): void => {
@@ -1303,8 +720,6 @@ export function EidGreetingApp() {
   };
 
   const handleCopyText = async (): Promise<void> => {
-    setIsShareOptionsOpen(false);
-
     const didCopyText = await copyTextToClipboard(shareText);
 
     if (!didCopyText) {
@@ -1319,148 +734,125 @@ export function EidGreetingApp() {
     setIsShareOptionsOpen((current) => !current);
   };
 
-  const openWhatsAppFallback = async (
-    shareText: string,
-    needsManualImageUpload = false
+  const handleCloseShareModal = (): void => {
+    setIsShareOptionsOpen(false);
+  };
+
+  const openPlatformFallback = async (
+    platform: SharePlatform
   ): Promise<void> => {
-    const didOpenWhatsApp = openWhatsAppShareWindow(shareText);
+    const platformLabel = SHARE_PLATFORM_LABELS[platform];
     const didCopyText = await copyTextToClipboard(shareText);
 
+    if (platform === "instagram") {
+      const didOpenInstagram = openExternalShareLink(
+        "https://www.instagram.com/"
+      );
+
+      if (didOpenInstagram && didCopyText) {
+        setStatusMessage(
+          "Browser belum bisa melampirkan gambar langsung ke Instagram. Instagram dibuka dan ucapan disalin ke clipboard."
+        );
+        return;
+      }
+
+      if (didOpenInstagram) {
+        setStatusMessage(
+          "Browser belum bisa melampirkan gambar langsung ke Instagram."
+        );
+        return;
+      }
+
+      setStatusMessage(
+        "Browser belum mendukung lampiran gambar langsung ke Instagram. Gunakan Download lalu kirim manual."
+      );
+      return;
+    }
+
+    if (!shareLink) {
+      setStatusMessage(
+        `Browser belum mendukung lampiran gambar langsung ke ${platformLabel}.`
+      );
+      return;
+    }
+
+    const shareUrl = buildSocialShareUrl(platform, shareLink, shareText);
+    const didOpenShare = openExternalShareLink(shareUrl);
+
+    if (didOpenShare && didCopyText) {
+      setStatusMessage(
+        `${platformLabel} dibuka. Browser belum bisa melampirkan gambar langsung, tetapi ucapan sudah disalin ke clipboard.`
+      );
+      return;
+    }
+
+    if (didOpenShare) {
+      setStatusMessage(
+        `${platformLabel} dibuka tanpa lampiran gambar langsung dari browser.`
+      );
+      return;
+    }
+
     setStatusMessage(
-      buildWhatsAppFallbackMessage(
-        didOpenWhatsApp,
-        didCopyText,
-        needsManualImageUpload
-      )
+      `Browser belum mendukung lampiran gambar langsung ke ${platformLabel}. Gunakan Download lalu kirim manual.`
     );
   };
 
-  const handleShareTarget = async (target: ShareTarget): Promise<void> => {
-    setIsShareOptionsOpen(false);
-
-    const shareData = {
-      text: shareText,
-    } satisfies ShareData;
-
-    if (target === "whatsapp" && !navigator.share) {
-      await openWhatsAppFallback(shareText);
-      return;
-    }
+  const shareCardToPlatform = async (
+    platform: SharePlatform
+  ): Promise<void> => {
+    handleCloseShareModal();
 
     const canvas = syncRender();
 
     if (!canvas) {
+      setStatusMessage("Kartu belum siap dibagikan.");
       return;
     }
 
-    const result = await shareCanvasImage(
+    const shareFile = createShareFileFromCanvas(
       canvas,
-      buildFilename(selectedTemplate, settings.sender),
-      shareData
+      selectedTemplate,
+      settings.sender
     );
 
-    if (result.status === "cancelled" || !result.message) {
+    if (!shareFile) {
+      setStatusMessage("Gambar kartu tidak bisa disiapkan.");
       return;
     }
 
-    if (target === "whatsapp" && result.status === "failed") {
-      await openWhatsAppFallback(shareText, true);
+    const nativeShareResult = await shareFilesWithCaption(shareFile, shareText);
+
+    if (nativeShareResult === "shared") {
+      setStatusMessage("Gambar dan ucapan berhasil dibagikan.");
       return;
     }
 
-    if (result.status === "shared-file") {
-      setStatusMessage(getShareTargetMessage(target));
+    if (nativeShareResult === "cancelled") {
       return;
     }
 
-    setStatusMessage(result.message);
+    await openPlatformFallback(platform);
   };
 
-  const handleShareToWhatsApp = (): Promise<void> => {
-    return handleShareTarget("whatsapp");
+  const handleShareToFacebook = async (): Promise<void> => {
+    await shareCardToPlatform("facebook");
   };
 
-  const handleShareToSocial = (): Promise<void> => {
-    return handleShareTarget("social");
+  const handleShareToTwitter = async (): Promise<void> => {
+    await shareCardToPlatform("twitter");
   };
 
-  const handleCanvasPointerDown = (
-    event: PointerEvent<HTMLCanvasElement>
-  ): void => {
-    if (activeTab !== "studio") {
-      return;
-    }
-
-    const canvas = canvasRef.current;
-
-    if (!canvas) {
-      return;
-    }
-
-    const point = getCanvasPoint(canvas, event);
-    const bounds = textBoundsRef.current;
-
-    if (!isPointInsideBounds(point, bounds)) {
-      return;
-    }
-
-    canvas.setPointerCapture(event.pointerId);
-    dragStateRef.current = {
-      originTextX: settings.textX,
-      originTextY: settings.textY,
-      pointerId: event.pointerId,
-      startX: point.x,
-      startY: point.y,
-    };
-    setIsDraggingText(true);
+  const handleShareToWhatsApp = async (): Promise<void> => {
+    await shareCardToPlatform("whatsapp");
   };
 
-  const handleCanvasPointerMove = (
-    event: PointerEvent<HTMLCanvasElement>
-  ): void => {
-    const canvas = canvasRef.current;
-    const dragState = dragStateRef.current;
-
-    if (!(canvas && dragState) || dragState.pointerId !== event.pointerId) {
-      return;
-    }
-
-    const point = getCanvasPoint(canvas, event);
-    const deltaX = ((point.x - dragState.startX) / canvas.width) * 100;
-    const deltaY = ((point.y - dragState.startY) / canvas.height) * 100;
-
-    setSettings((current) => ({
-      ...current,
-      textX: clamp(dragState.originTextX + deltaX, 18, 82),
-      textY: clamp(dragState.originTextY + deltaY, 20, 82),
-    }));
+  const handleShareToInstagram = async (): Promise<void> => {
+    await shareCardToPlatform("instagram");
   };
 
-  const handleCanvasPointerEnd = (
-    event: PointerEvent<HTMLCanvasElement>
-  ): void => {
-    const canvas = canvasRef.current;
-    const dragState = dragStateRef.current;
-
-    if (!(canvas && dragState) || dragState.pointerId !== event.pointerId) {
-      return;
-    }
-
-    if (canvas.hasPointerCapture(event.pointerId)) {
-      canvas.releasePointerCapture(event.pointerId);
-    }
-
-    dragStateRef.current = null;
-    setIsDraggingText(false);
-  };
-
-  const jumpFromGallery = (templateId: string): void => {
-    selectTemplate(templateId);
-    setActiveTab("studio");
-    window.scrollTo({
-      behavior: "smooth",
-      top: 0,
-    });
+  const handleShareToLinkedIn = async (): Promise<void> => {
+    await shareCardToPlatform("linkedin");
   };
 
   return (
@@ -1513,417 +905,84 @@ export function EidGreetingApp() {
 
         <main className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
           <div className="flex flex-col gap-5">
-            {activeTab === "simple" ? (
-              <ControlPanel>
-                <div className="grid gap-4">
-                  <label className="flex flex-col gap-2">
-                    <span className="font-medium text-[#5e4b3a] text-sm">
-                      Nama Anda & Keluarga
-                    </span>
-                    <input
-                      className="rounded-[18px] border border-[#dfe8bf] bg-white px-4 py-3 text-[#2f1d19] text-base outline-none transition focus:border-[#59cd00]"
-                      onChange={(event) =>
-                        updateSettings({ sender: event.target.value })
-                      }
-                      placeholder="Abdullah & Keluarga"
-                      type="text"
-                      value={settings.sender}
-                    />
-                    <span className="text-[#7a6a57] text-xs leading-5">
-                      Isi nama untuk melihat hasilnya di LIVE PREVIEW, lalu
-                      pilih template yang Anda inginkan,
-                    </span>
-                  </label>
-                  <div className="grid gap-3">
-                    <span className="font-medium text-[#5e4b3a] text-sm">
-                      Ukuran
-                    </span>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      {CARD_SIZE_OPTIONS.map((size) => {
-                        const isActive = size.id === settings.sizeId;
+            <ControlPanel>
+              <div className="grid gap-4">
+                <label className="flex flex-col gap-2">
+                  <span className="font-medium text-[#5e4b3a] text-sm">
+                    Nama Anda & Keluarga
+                  </span>
+                  <input
+                    className="rounded-[18px] border border-[#dfe8bf] bg-white px-4 py-3 text-[#2f1d19] text-base outline-none transition focus:border-[#59cd00]"
+                    onChange={(event) =>
+                      updateSettings({ sender: event.target.value })
+                    }
+                    placeholder="Abdullah & Keluarga"
+                    type="text"
+                    value={settings.sender}
+                  />
+                  <span className="text-[#7a6a57] text-xs leading-5">
+                    Isi nama untuk melihat hasilnya di live preview, lalu pilih
+                    template yang Anda inginkan.
+                  </span>
+                </label>
 
-                        return (
-                          <button
-                            className={`rounded-[20px] border px-4 py-3 text-left transition ${
-                              isActive
-                                ? "border-[#459a00] bg-[#459a00] text-white"
-                                : "border-[#dceab3] bg-white text-[#5e4b3a] hover:border-[#59cd00]"
-                            }`}
-                            key={size.id}
-                            onClick={() => updateSettings({ sizeId: size.id })}
-                            type="button"
-                          >
-                            <span className="block font-semibold text-base">
-                              {size.label}
-                            </span>
-                            <span
-                              className={`mt-1 block text-xs ${
-                                isActive ? "text-white/72" : "text-[#7a6a57]"
-                              }`}
-                            >
-                              {size.width} x {size.height}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="rounded-[24px] border border-[#edf7d4] bg-[#fbfff3] px-4 py-4 text-[#5e4b3a] text-sm leading-6">
-                    Nama akan muncul di panel ornamen tengah dari template yang
-                    dipilih.
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {EID_TEMPLATES.map((template) => {
-                      const isActive = template.id === settings.templateId;
-
-                      return (
-                        <button
-                          className={`rounded-[26px] border p-3 text-left transition ${
-                            isActive
-                              ? "border-[#459a00] bg-[#f7ffe9] shadow-[0_18px_45px_rgba(69,154,0,0.12)]"
-                              : "border-[#dceab3] bg-white hover:border-[#59cd00]"
-                          }`}
-                          key={template.id}
-                          onClick={() => selectTemplate(template.id)}
-                          type="button"
-                        >
-                          <div className="relative aspect-[4/5] overflow-hidden rounded-[20px] border border-[#edf7d4] bg-[#fbfff3]">
-                            <Image
-                              alt={`Preview ${template.name}`}
-                              className="object-cover object-top"
-                              fill
-                              sizes="(min-width: 1280px) 260px, (min-width: 640px) 50vw, 100vw"
-                              src={template.editorImagePath}
-                            />
-                          </div>
-                          <div className="mt-3 flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-semibold text-[#7a6a57] text-xs uppercase tracking-[0.26em]">
-                                {template.badge}
-                              </p>
-                              <h2
-                                className={`${displayFont.className} mt-2 text-[#2f1d19] text-xl`}
-                              >
-                                {template.name}
-                              </h2>
-                            </div>
-                            {isActive ? (
-                              <span className="rounded-full bg-[#459a00] px-3 py-1 font-semibold text-white text-xs">
-                                Aktif
-                              </span>
-                            ) : null}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div className="rounded-[24px] border border-[#edf7d4] bg-[#fbfff3] px-4 py-4 text-[#5e4b3a] text-sm leading-6">
+                  Nama akan muncul di panel ornamen tengah dari template yang
+                  dipilih.
                 </div>
-              </ControlPanel>
-            ) : null}
 
-            {activeTab === "studio" ? (
-              <>
-                <ControlPanel
-                  description="Atur seluruh karakter kartu: template, pesan, warna, rasio, dan background sendiri."
-                  title="Creative Studio"
-                >
-                  <div className="grid gap-5">
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {EID_TEMPLATES.map((template) => {
-                        const isActive = template.id === settings.templateId;
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {EID_TEMPLATES.map((template) => {
+                    const isActive = template.id === settings.templateId;
 
-                        return (
-                          <button
-                            className={`rounded-[24px] border p-4 text-left transition ${
-                              isActive
-                                ? "border-[#459a00] bg-[#459a00] text-white"
-                                : "border-[#dceab3] bg-white text-[#5e4b3a] hover:border-[#59cd00]"
-                            }`}
-                            key={template.id}
-                            onClick={() => selectTemplate(template.id)}
-                            type="button"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <p
-                                  className={`font-semibold text-xs uppercase tracking-[0.28em] ${
-                                    isActive
-                                      ? "text-white/70"
-                                      : "text-[#7a6a57]"
-                                  }`}
-                                >
-                                  {template.badge}
-                                </p>
-                                <h2
-                                  className={`${displayFont.className} mt-2 text-2xl ${
-                                    isActive ? "text-white" : "text-[#2f1d19]"
-                                  }`}
-                                >
-                                  {template.name}
-                                </h2>
-                              </div>
-                              <span
-                                className="h-12 w-12 rounded-full border border-white/40"
-                                style={{
-                                  background: `linear-gradient(135deg, ${template.palette.backdropStart}, ${template.palette.backdropEnd})`,
-                                }}
-                              />
-                            </div>
-                            <p
-                              className={`mt-3 text-sm leading-6 ${
-                                isActive ? "text-white/74" : "text-[#6b5a46]"
-                              }`}
-                            >
-                              {template.description}
-                            </p>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="grid gap-3">
-                        <span className="font-medium text-[#5e4b3a] text-sm">
-                          Rasio output
-                        </span>
-                        <div className="grid gap-3 sm:grid-cols-3">
-                          {CARD_SIZE_OPTIONS.map((size) => {
-                            const isActive = size.id === settings.sizeId;
-
-                            return (
-                              <button
-                                className={`rounded-[20px] border px-4 py-3 text-left text-sm transition ${
-                                  isActive
-                                    ? "border-[#459a00] bg-[#459a00] text-white"
-                                    : "border-[#dceab3] bg-white text-[#5e4b3a] hover:border-[#59cd00]"
-                                }`}
-                                key={size.id}
-                                onClick={() =>
-                                  updateSettings({ sizeId: size.id })
-                                }
-                                type="button"
-                              >
-                                <span className="block font-semibold">
-                                  {size.label}
-                                </span>
-                                <span
-                                  className={`mt-1 block text-xs ${
-                                    isActive
-                                      ? "text-white/72"
-                                      : "text-[#7a6a57]"
-                                  }`}
-                                >
-                                  {size.width} x {size.height}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="grid gap-3">
-                        <span className="font-medium text-[#5e4b3a] text-sm">
-                          Posisi teks
-                        </span>
-                        <div className="grid gap-3 sm:grid-cols-3">
-                          {ALIGNMENT_OPTIONS.map((option) => {
-                            const isActive = option.id === settings.alignment;
-
-                            return (
-                              <button
-                                className={`rounded-[20px] border px-4 py-3 font-semibold text-sm transition ${
-                                  isActive
-                                    ? "border-[#459a00] bg-[#459a00] text-white"
-                                    : "border-[#dceab3] bg-white text-[#5e4b3a] hover:border-[#59cd00]"
-                                }`}
-                                key={option.id}
-                                onClick={() =>
-                                  updateSettings({ alignment: option.id })
-                                }
-                                type="button"
-                              >
-                                {option.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <RangeField
-                        label="Ukuran judul"
-                        maximum={136}
-                        minimum={68}
-                        onChange={(value) =>
-                          updateSettings({ titleSize: value })
-                        }
-                        value={settings.titleSize}
-                        valueLabel={`${settings.titleSize}px`}
-                      />
-                      <RangeField
-                        label="Ukuran isi"
-                        maximum={48}
-                        minimum={28}
-                        onChange={(value) =>
-                          updateSettings({ bodySize: value })
-                        }
-                        value={settings.bodySize}
-                        valueLabel={`${settings.bodySize}px`}
-                      />
-                      <RangeField
-                        label="Posisi horizontal"
-                        maximum={82}
-                        minimum={18}
-                        onChange={(value) => updateSettings({ textX: value })}
-                        value={settings.textX}
-                        valueLabel={`${settings.textX}%`}
-                      />
-                      <RangeField
-                        label="Posisi vertikal"
-                        maximum={82}
-                        minimum={20}
-                        onChange={(value) => updateSettings({ textY: value })}
-                        value={settings.textY}
-                        valueLabel={`${settings.textY}%`}
-                      />
-                      <RangeField
-                        label="Kekuatan overlay"
-                        maximum={90}
-                        minimum={30}
-                        onChange={(value) =>
-                          updateSettings({ overlayStrength: value })
-                        }
-                        value={settings.overlayStrength}
-                        valueLabel={`${settings.overlayStrength}%`}
-                      />
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="grid gap-3">
-                        <span className="font-medium text-[#5e4b3a] text-sm">
-                          Warna aksen
-                        </span>
-                        <div className="flex flex-wrap gap-3">
-                          {ACCENT_SWATCHES.map((color) => (
-                            <SwatchButton
-                              active={settings.accentColor === color}
-                              color={color}
-                              key={color}
-                              label={`Warna aksen ${color}`}
-                              onClick={() =>
-                                updateSettings({ accentColor: color })
-                              }
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <div className="grid gap-3">
-                        <span className="font-medium text-[#5e4b3a] text-sm">
-                          Warna teks
-                        </span>
-                        <div className="flex flex-wrap gap-3">
-                          {TEXT_SWATCHES.map((color) => (
-                            <SwatchButton
-                              active={settings.textColor === color}
-                              color={color}
-                              key={color}
-                              label={`Warna teks ${color}`}
-                              onClick={() =>
-                                updateSettings({ textColor: color })
-                              }
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 rounded-[24px] border border-[#dceab3] border-dashed bg-white p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-4">
-                        <div>
-                          <h3 className="font-semibold text-[#3f2a1d] text-sm">
-                            Background kustom
-                          </h3>
-                          <p className="mt-1 text-[#6b5a46] text-sm leading-6">
-                            Unggah foto sendiri lalu atur overlay agar teks
-                            tetap terbaca.
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-3">
-                          <label
-                            className="cursor-pointer rounded-full bg-[#459a00] px-4 py-2 font-semibold text-sm text-white transition hover:bg-[#3d8700]"
-                            htmlFor={fileInputId}
-                          >
-                            Unggah gambar
-                          </label>
-                          <input
-                            accept="image/*"
-                            className="sr-only"
-                            id={fileInputId}
-                            onChange={handleBackgroundUpload}
-                            type="file"
-                          />
-                          {settings.backgroundSource ? (
-                            <button
-                              className="rounded-full border border-[#bfd684] bg-white px-4 py-2 font-semibold text-[#5e4b3a] text-sm transition hover:border-[#59cd00]"
-                              onClick={clearUploadedBackground}
-                              type="button"
-                            >
-                              Hapus background
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </ControlPanel>
-
-                <ControlPanel
-                  description="Gunakan preset ini jika ingin mulai dari kombinasi yang aman."
-                  title="Preset Cepat"
-                >
-                  <div className="grid gap-3">
-                    {MESSAGE_PRESETS.map((message) => (
+                    return (
                       <button
-                        className={`rounded-[22px] border px-4 py-4 text-left text-sm leading-6 transition ${
-                          settings.message === message
-                            ? "border-[#459a00] bg-[#459a00] text-white"
-                            : "border-[#dceab3] bg-white text-[#5e4b3a] hover:border-[#59cd00]"
+                        className={`rounded-[26px] border p-3 text-left transition ${
+                          isActive
+                            ? "border-[#459a00] bg-[#f7ffe9] shadow-[0_18px_45px_rgba(69,154,0,0.12)]"
+                            : "border-[#dceab3] bg-white hover:border-[#59cd00]"
                         }`}
-                        key={message}
-                        onClick={() => updateSettings({ message })}
+                        key={template.id}
+                        onClick={() => selectTemplate(template.id)}
                         type="button"
                       >
-                        {message}
+                        <div className="relative aspect-[4/5] overflow-hidden rounded-[20px] border border-[#edf7d4] bg-[#fbfff3]">
+                          <Image
+                            alt={`Preview ${template.name}`}
+                            className="object-cover object-top"
+                            fill
+                            sizes="(min-width: 1280px) 260px, (min-width: 640px) 50vw, 100vw"
+                            src={template.editorImagePath}
+                          />
+                        </div>
+                        <div className="mt-3 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-[#7a6a57] text-xs uppercase tracking-[0.26em]">
+                              {template.badge}
+                            </p>
+                            <h2
+                              className={`${displayFont.className} mt-2 text-[#2f1d19] text-xl`}
+                            >
+                              {template.name}
+                            </h2>
+                          </div>
+                          {isActive ? (
+                            <span className="rounded-full bg-[#459a00] px-3 py-1 font-semibold text-white text-xs">
+                              Aktif
+                            </span>
+                          ) : null}
+                        </div>
                       </button>
-                    ))}
-                  </div>
-                </ControlPanel>
-              </>
-            ) : null}
-
-            {activeTab === "gallery" ? (
-              <ControlPanel
-                description="Pilih desain yang sudah jadi, unduh langsung, atau buka ke Studio untuk diedit lebih lanjut."
-                title="Template Gallery"
-              >
-                <div className="grid gap-4 xl:grid-cols-2">
-                  {EID_TEMPLATES.map((template, index) => (
-                    <GalleryCard
-                      index={index}
-                      key={template.id}
-                      onUseTemplate={jumpFromGallery}
-                      template={template}
-                    />
-                  ))}
+                    );
+                  })}
                 </div>
-              </ControlPanel>
-            ) : null}
+              </div>
+            </ControlPanel>
           </div>
 
           <aside className="lg:sticky lg:top-6 lg:self-start">
             <div className="overflow-hidden rounded-[34px] border border-[#dff1b7] bg-white p-4 shadow-[0_28px_70px_rgba(69,154,0,0.1)] sm:p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
                 <div>
                   <p className="font-semibold text-[#7a6a57] text-xs uppercase tracking-[0.3em]">
                     Live Preview
@@ -1934,24 +993,12 @@ export function EidGreetingApp() {
                     {selectedTemplate.name}
                   </h2>
                 </div>
-                <span className="rounded-full bg-[#fff8cf] px-3 py-1 font-medium text-[#5e4b3a] text-xs">
-                  {CARD_SIZES[settings.sizeId].label}
-                </span>
               </div>
 
               <div className="mt-5 rounded-[30px] border border-[#dceab3] bg-white p-3 shadow-inner">
                 <GreetingCanvas
-                  backgroundImage={backgroundImage}
                   canvasRef={canvasRef}
                   className="border border-[#eef8d8] bg-white shadow-[0_18px_45px_rgba(69,154,0,0.12)]"
-                  interactive={activeTab === "studio"}
-                  onBoundsChange={(bounds) => {
-                    textBoundsRef.current = bounds;
-                  }}
-                  onPointerCancel={handleCanvasPointerEnd}
-                  onPointerDown={handleCanvasPointerDown}
-                  onPointerMove={handleCanvasPointerMove}
-                  onPointerUp={handleCanvasPointerEnd}
                   settings={settings}
                   template={selectedTemplate}
                   templateImage={selectedTemplateImage}
@@ -1965,11 +1012,6 @@ export function EidGreetingApp() {
                     panel ornamen tengah dan siap diunduh.
                   </p>
                 </div>
-                {isDraggingText ? (
-                  <div className="rounded-[24px] border border-[#459a00] bg-[#459a00] px-4 py-3 text-white">
-                    Sedang memindahkan blok teks.
-                  </div>
-                ) : null}
                 {statusMessage ? (
                   <div className="rounded-[24px] border border-[#efe099] bg-white px-4 py-3 text-[#5e4b3a]">
                     {statusMessage}
@@ -2001,7 +1043,7 @@ export function EidGreetingApp() {
                 </button>
                 <button
                   className="rounded-full border border-[#bfd684] bg-white px-5 py-3 font-semibold text-[#5e4b3a] text-sm transition hover:border-[#59cd00]"
-                  onClick={resetStudio}
+                  onClick={resetSettings}
                   type="button"
                 >
                   Reset
@@ -2038,10 +1080,11 @@ export function EidGreetingApp() {
         onClose={() => {
           setIsShareOptionsOpen(false);
         }}
-        onCopyText={handleCopyText}
-        onShareToSocial={handleShareToSocial}
+        onShareToFacebook={handleShareToFacebook}
+        onShareToInstagram={handleShareToInstagram}
+        onShareToLinkedIn={handleShareToLinkedIn}
+        onShareToTwitter={handleShareToTwitter}
         onShareToWhatsApp={handleShareToWhatsApp}
-        shareText={shareText}
       />
     </div>
   );
