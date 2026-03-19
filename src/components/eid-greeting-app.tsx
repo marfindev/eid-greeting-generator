@@ -690,28 +690,29 @@ export function EidGreetingApp() {
   };
 
   const openPlatformFallback = async (
+    canvas: HTMLCanvasElement,
     platform: SharePlatform
   ): Promise<void> => {
     const platformLabel = SHARE_PLATFORM_LABELS[platform];
+    handleCloseShareModal();
+    downloadCanvas(canvas, selectedTemplate, settings.sender);
     const didCopyText = await copyTextToClipboard(shareText);
 
     if (didCopyText) {
       setStatusMessage(
-        `Browser belum mendukung lampiran gambar langsung ke ${platformLabel}. Ucapan disalin ke clipboard, lalu gunakan Download untuk mengirim gambar secara manual.`
+        `Browser belum mendukung lampiran gambar langsung ke ${platformLabel}. Gambar sudah diunduh dan ucapan disalin ke clipboard agar bisa dikirim manual seperti contoh.`
       );
       return;
     }
 
     setStatusMessage(
-      `Browser belum mendukung lampiran gambar langsung ke ${platformLabel}. Gunakan Download lalu kirim manual.`
+      `Browser belum mendukung lampiran gambar langsung ke ${platformLabel}. Gambar sudah diunduh; kirim manual bersama ucapan.`
     );
   };
 
   const shareCardToPlatform = async (
     platform: SharePlatform
   ): Promise<void> => {
-    handleCloseShareModal();
-
     const canvas = syncRender();
 
     if (!canvas) {
@@ -733,6 +734,7 @@ export function EidGreetingApp() {
     const nativeShareResult = await shareFilesWithCaption(shareFile, shareText);
 
     if (nativeShareResult === "shared") {
+      handleCloseShareModal();
       setStatusMessage("Gambar dan ucapan berhasil dibagikan.");
       return;
     }
@@ -741,7 +743,7 @@ export function EidGreetingApp() {
       return;
     }
 
-    await openPlatformFallback(platform);
+    await openPlatformFallback(canvas, platform);
   };
 
   const handleShareToFacebook = async (): Promise<void> => {
