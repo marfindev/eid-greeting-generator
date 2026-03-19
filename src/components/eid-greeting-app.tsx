@@ -14,6 +14,7 @@ import {
   CARD_SIZE_OPTIONS,
   CARD_SIZES,
   DEFAULT_SETTINGS,
+  DEFAULT_TEMPLATE_IMAGE_PATH,
   type EditorState,
   EID_TEMPLATES,
   type EidTemplate,
@@ -196,8 +197,6 @@ const GALLERY_MOCKUP_ROTATIONS = [
   "-rotate-[0.9deg]",
   "rotate-[1.2deg]",
 ] as const;
-
-const FALLBACK_TEMPLATE_IMAGE_PATH = "/image/templates/template-01.png";
 
 const clamp = (value: number, minimum: number, maximum: number): number => {
   return Math.min(Math.max(value, minimum), maximum);
@@ -435,7 +434,7 @@ const useTemplateImageWithFallback = (
   source: string
 ): HTMLImageElement | null => {
   const image = useAssetImage(source);
-  const fallbackImage = useAssetImage(FALLBACK_TEMPLATE_IMAGE_PATH);
+  const fallbackImage = useAssetImage(DEFAULT_TEMPLATE_IMAGE_PATH);
 
   return image ?? fallbackImage;
 };
@@ -1070,10 +1069,10 @@ export function EidGreetingApp() {
               </div>
             </div>
             <div className="order-3 col-span-2 text-center sm:order-none sm:col-span-1 sm:col-start-2 sm:row-start-1">
-              <p className="whitespace-nowrap font-semibold text-[#4d9300] text-[0.72rem] uppercase tracking-[0.16em] sm:text-lg sm:tracking-[0.3em]">
+              <p className="relative left-1/2 w-max -translate-x-1/2 whitespace-nowrap font-semibold text-[#4d9300] text-[0.72rem] uppercase tracking-[0.16em] sm:text-sm sm:tracking-[0.18em] lg:text-base lg:tracking-[0.22em] xl:text-lg xl:tracking-[0.3em]">
                 Yayasan Pendidikan Yatim & Dhu&apos;afa An-Nahl
               </p>
-              <p className="mt-1 whitespace-nowrap font-semibold text-[#4d9300] text-[0.72rem] uppercase tracking-[0.16em] sm:text-lg sm:tracking-[0.3em]">
+              <p className="relative left-1/2 mt-1 w-max -translate-x-1/2 whitespace-nowrap font-semibold text-[#4d9300] text-[0.72rem] uppercase tracking-[0.16em] sm:text-sm sm:tracking-[0.18em] lg:text-base lg:tracking-[0.22em] xl:text-lg xl:tracking-[0.3em]">
                 Pondok Pesantren Tahfizh Al-Uswah
               </p>
               <h1
@@ -1114,7 +1113,7 @@ export function EidGreetingApp() {
                       onChange={(event) =>
                         updateSettings({ sender: event.target.value })
                       }
-                      placeholder="Mis. Abdullah & Keluarga"
+                      placeholder="Abdullah & Keluarga"
                       type="text"
                       value={settings.sender}
                     />
@@ -1572,7 +1571,7 @@ export function EidGreetingApp() {
                   onClick={handleDownload}
                   type="button"
                 >
-                  Download PNG
+                  Download
                 </button>
                 <button
                   className="rounded-full border border-[#bfd684] bg-white px-5 py-3 font-semibold text-[#5e4b3a] text-sm transition hover:border-[#59cd00]"

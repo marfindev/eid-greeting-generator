@@ -86,6 +86,15 @@ export const CARD_SIZE_OPTIONS = [
   CARD_SIZES.story,
 ] as const;
 
+const TEMPLATE_ASSET_VERSION = "20260319";
+
+const buildTemplateAssetPath = (filename: string): string => {
+  return `/image/templates/${filename}?v=${TEMPLATE_ASSET_VERSION}`;
+};
+
+export const DEFAULT_TEMPLATE_IMAGE_PATH =
+  buildTemplateAssetPath("template-01.png");
+
 export const EID_TEMPLATES = [
   {
     badge: "Lentera",
@@ -94,8 +103,8 @@ export const EID_TEMPLATES = [
       "Semoga Idulfitri ini membawa hati yang lapang, rumah yang damai, dan langkah yang penuh keberkahan.",
     description:
       "Adaptasi template Canva bernuansa hijau-cokelat yang sederhana, hangat, dan dekat dengan warna brand.",
-    editorImagePath: "/image/templates/template-01.png",
-    galleryImagePath: "/image/gallery/template-01.png",
+    editorImagePath: buildTemplateAssetPath("template-01.png"),
+    galleryImagePath: buildTemplateAssetPath("template-01.png"),
     headline: "Selamat Idul Fitri",
     id: "template-01",
     kicker: "Lentera Hijau",
@@ -125,8 +134,8 @@ export const EID_TEMPLATES = [
       "Taqabbalallahu minna wa minkum. Semoga setiap doa baik yang dipanjatkan di hari ini dibalas dengan kebaikan yang berlipat.",
     description:
       "Adaptasi template Canva dengan siluet masjid yang elegan, lalu direcolor ke hijau lembut dan aksen emas.",
-    editorImagePath: "/image/templates/template-02.png",
-    galleryImagePath: "/image/gallery/template-02.png",
+    editorImagePath: buildTemplateAssetPath("template-02.png"),
+    galleryImagePath: buildTemplateAssetPath("template-02.png"),
     headline: "Selamat Idul Fitri",
     id: "template-02",
     kicker: "Masjid Lentera",
@@ -156,8 +165,8 @@ export const EID_TEMPLATES = [
       "Mari menutup Ramadan dengan syukur dan membuka hari raya dengan pelukan hangat, silaturahmi, dan banyak kebaikan.",
     description:
       "Versi floral premium dari template Canva dengan permainan emas lembut dan hijau daun yang lebih editorial.",
-    editorImagePath: "/image/templates/template-03.png",
-    galleryImagePath: "/image/gallery/template-03.png",
+    editorImagePath: buildTemplateAssetPath("template-03.png"),
+    galleryImagePath: buildTemplateAssetPath("template-03.png"),
     headline: "Selamat Idul Fitri",
     id: "template-03",
     kicker: "Tipografi Emerald",
@@ -187,8 +196,8 @@ export const EID_TEMPLATES = [
       "Semoga setiap langkah selepas Ramadan tetap dijaga dalam ketenangan, keikhlasan, dan cinta pada sesama.",
     description:
       "Adaptasi template Canva bertema bulan dan bintang untuk ucapan yang lebih atmosferik dan tenang.",
-    editorImagePath: "/image/templates/template-04.png",
-    galleryImagePath: "/image/gallery/template-04.png",
+    editorImagePath: buildTemplateAssetPath("template-04.png"),
+    galleryImagePath: buildTemplateAssetPath("template-04.png"),
     headline: "Selamat Idul Fitri",
     id: "template-04",
     kicker: "Kaligrafi Masjid",
